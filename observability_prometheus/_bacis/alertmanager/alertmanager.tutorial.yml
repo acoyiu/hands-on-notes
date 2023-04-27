@@ -1,0 +1,81 @@
+# Prometheus alert resolve 左之後，alertManager 的 alert 都會消失掉的 ！！
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+# https://yunlzheng.gitbook.io/prometheus-book/parti-prometheus-ji-chu/alert/install-alert-manager
+
+# Alertmanager的配置主要包含两个部分：路由(route)以及接收器(receivers)。
+
+# 所有的告警信息都会从配置中的顶级路由(route)进入路由树，根据路由规则将告警信息发送给相应的接收器。
+
+# 在Alertmanager中可以定义一组接收器，比如可以按照角色(比如系统运维，数据库管理员)来划分多个接收器。接收器可以关联邮件，Slack以及其它方式接收告警信息。
+
+# 当前配置文件中定义了一个默认的接收者default-receiver由于这里没有设置接收方式，目前只相当于一个占位符。
+
+# 在配置文件中使用route定义了顶级的路由，路由是一个基于标签匹配规则的树状结构。所有的告警信息从顶级路由开始，
+
+# 根据标签匹配规则进入到不同的子路由，并且根据子路由设置的接收器发送告警。目前配置文件中只设置了一个顶级路由route并且定义的接收器为default-receiver。
+
+# 因此，所有的告警都会发送给default-receiver。关于路由的详细内容会在后续进行详细介绍。
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+# 全局配置（global）：用于定义一些全局的公共参数，如全局的SMTP配置，Slack配置等内容；
+# 模板（templates）：用于定义告警通知时的模板，如HTML模板，邮件模板等；
+# 告警路由（route）：根据标签匹配，确定当前告警应该如何处理；
+# 接收人（receivers）：接收人是一个抽象的概念，它可以是一个邮箱也可以是微信，Slack或者Webhook等，接收人一般配合告警路由使用；
+# 抑制规则（inhibit_rules）：合理设置抑制规则可以减少垃圾告警的产生
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+global:
+  resolve_timeout: 5m                           ## -> 该参数定义了当Alertmanager持续多长时间未接收到告警后标记告警状态为resolved（已解决）。
+                                                 #    该参数的定义可能会影响到告警恢复通知的接收时间，读者可根据自己的实际场景进行定义，其默认值为5分钟。       
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+route:                                     # 1: 由顶级路由(route) 进入路由树, 必須能匹配所有路由！ (即不能有任何的匹配设置 match 和 match_re )
+  receiver: "default-receiver" 
+  
+  group_wait: 30s                               ## -> 有的时候为了能够一次性收集和发送更多的相关信息时，可以通过group_wait参数设置等待时间，如果在等待时间内当前group接收到了新的告警，这些告警将会合并为一个通知向receiver发送。
+  group_interval: 5m                            ## -> 定义相同的Group之间发送告警通知的时间间隔
+  group_by: [cluster, alertname]                ## -> Alertmanager可以对告警通知进行分组，将多条告警合合并为一个通知
+                                                 #    基于告警中包含的标签，如果满足group_by中定义标签名称，那么这些告警将会合并为一个通知发送给接收器。
+  
+  repeat_interval: 1h                           ## -> 如仍然未 resolve 每隔一段時間重新發送 alert
+
+  routes:                                  # 5: 如果当前告警匹配不到任何的子节点，那该告警将会基于当前路由节点的接收器配置方式进行处理。
+  
+    - receiver: "database-pager"           # 2: 次級路由
+      group_wait: 10s
+      match_re:                                 ## -> Match by regex
+        service: mysql|cassandra
+      continue: false                      # 4: 如果route中设置continue的值为false，那么告警在匹配到第一个子节点之后就直接停止。如果continue为true，报警则会继续进行后续子节点的匹配。
+      routes:                              
+        - receiver: "asd-page"             # 3: 三級路由
+          match: 
+            labelname: labelvalue
+
+    - receiver: "frontend-pager"           # 2: 次級路由
+      group_by: [product, environment]     
+      match:                                    ## -> Match by label, like k8s
+        team: frontend                      
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+receivers:           
+    default-receiver:                      # 每個 receiver 的詳細配置
+      - url: "http://127.0.0.1:5001/"
+    database-page:
+      - url: "http://127.0.0.1:5001/"
+    frontend-pager:
+      - url: "http://127.0.0.1:5001/"
+ 
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+inhibit_rules:
+  - source_match:
+      severity: "critical"
+    target_match:
+      severity: "warning"
+    equal: ["alertname", "dev", "instance"]

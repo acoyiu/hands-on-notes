@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://username:password@gitea.net/aco/tester.git
+    targetRevision: HEAD
+    path: helm
+    helm:
+      parameters:
+        - name: app.replicaCount
+          value: "3"
+  destination:
+    server: "https://kubernetes.default.svc"
+    namespace: helm-mc2
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

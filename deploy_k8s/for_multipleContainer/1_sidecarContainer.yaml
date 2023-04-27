@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-sidecar
+spec:
+  containers:
+    # main Container
+    - name: app-container-1
+      resources: {}
+      image: nginx
+      command: ["sh", "-c", "tail -f /log/nginx/access.log"] # <- can set custom main thread startup commmand
+
+    # sidecar Container
+    - name: app-container-2
+      resources: {}
+      image: alpine
+      command: ["/bin/sh"]
+      args:
+        - "-c"
+        - "while true; do date >> /var/log/app.txt; sleep 5;done"

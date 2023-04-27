@@ -1,0 +1,5 @@
+app:
+  name: ingress-for-hl
+  host: hl.greatics.net # can also be localhost
+  serviceName: aco-nginx-service
+  servicePort: 8080

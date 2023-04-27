@@ -1,0 +1,94 @@
+kind: pipeline
+type: docker
+name: default
+
+clone:
+  disable: true        # not engage the first clone step
+  depth: 1             # only get the 1 version history of commit
+
+trigger:
+  branch:
+    include:
+    - master           # <---- Condition GLOBAL trigger when master branch 
+    - feature/*        # OR any under feature
+  event:               # <---- Event, GLOBAL event trigger
+    - cron
+    - custom
+    - push
+    - pull_request
+    - tag
+    - promote
+    - rollback
+
+volumes:               # Host mounts allow you to mount an absolute path on the host machine 
+  - name: cache        # into a pipeline step. This setting is only available to trusted repositories.
+    host:
+      path: /var/lib/cache
+  - name: cache2       # this will create a temporary volume
+    temp: {}     
+    
+steps:
+  - name: test         # Step's name
+    image: alpine      # select image
+
+    environment:       # using secret set in GUI
+      USERNAME:
+        from_secret: docker_username
+
+    commands:          # Bash commands
+      - echo hello
+      - echo world
+
+    volumes:           # share files or folders among pipeline steps
+      - name: cache
+        path: /go                          
+
+    detach: true       # run in background
+    privileged: true   # can 打尖
+    failure: ignore    # allow fail without failing the overall pipeline
+
+  - name: frontend
+    image: node
+    commands:
+      - npm install    
+
+    when:              # <---- Condition
+      branch:          # <---- branch can be "include" or "exclude"
+        - master       # trigger when master branch
+        - feature/*    # OR any under feature
+      event:           # <---- By Event, can be "include" or "exclude" also
+        - push         # trigger when is push action only
+        - pull_request
+        - tag
+        - promote
+        - rollback
+        - cron
+      cron:
+        - nightly
+      ref:             # <---- By Ref, can check by "git show-ref"
+        - refs/heads/*
+      repo:            # <---- By Repo, for a repository and its forks
+        - tom/repo1
+        - sam/repo1
+      status:          # <---- can only execute when pipeline status is "failure"
+        - failure
+        - success
+      target:          # <---- trigger by environment
+        - production   # This only applies to promotion and rollback events.
+
+
+  - name: notify       # <---- Webhook: to set webhook to slack
+    image: plugins/slack
+    settings:
+      webhook: https://hooks.slack.com/services/...
+    when:
+      status:
+        - failure
+        - success
+      
+
+services:              # <---- GLOBAL backup service for pipeline
+  - name: cache        # Service containers share the same network as your pipeline steps 
+    image: redis       # and can be access at the localhost address. In our previous example, 
+                       # the redis container can be accessed from the pipeline at tcp://127.0.0.1:6379
+

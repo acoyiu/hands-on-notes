@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: go-exporter
+  labels:
+    usage: prometheus
+spec:
+  containers:
+    - resources: {}
+      name: go-exporter
+      image: golang:alpine
+      ports:
+        - containerPort: 8080
+      command: ["/bin/sh"]
+      args:
+        - -c
+        - >-
+          cp -r /goer /gorun &&
+          cd /gorun &&
+          go mod tidy &&
+          go run main.go
+      volumeMounts:
+        - mountPath: /goer
+          name: files
+  volumes:
+    - name: files
+      configMap:
+        name: gofiles
+        items:
+          - key: go.mod
+            path: go.mod
+          - key: main.go
+            path: main.go
+          - key: restartCount.go
+            path: restartCount/restartCount.go
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-exporter
+  labels:
+    usage: prometheus
+spec:
+  type: ClusterIP
+  selector:
+    usage: prometheus
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 8080
+
+---
+# kk create cm gofiles --from-file=./go.mod --from-file=./main.go --from-file=./restartCount/restartCount.go
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gofiles
+data:
+  go.mod: "module prometheus\n\ngo 1.17\n\nrequire (\n\tgithub.com/gin-gonic/gin v1.7.7\n\tgithub.com/prometheus/client_golang
+    v1.12.1\n\tgithub.com/tidwall/gjson v1.14.2\n)\n\nrequire (\n\tgithub.com/beorn7/perks
+    v1.0.1 // indirect\n\tgithub.com/cespare/xxhash/v2 v2.1.2 // indirect\n\tgithub.com/gin-contrib/sse
+    v0.1.0 // indirect\n\tgithub.com/go-playground/locales v0.13.0 // indirect\n\tgithub.com/go-playground/universal-translator
+    v0.17.0 // indirect\n\tgithub.com/go-playground/validator/v10 v10.4.1 // indirect\n\tgithub.com/golang/protobuf
+    v1.5.2 // indirect\n\tgithub.com/json-iterator/go v1.1.12 // indirect\n\tgithub.com/leodido/go-urn
+    v1.2.0 // indirect\n\tgithub.com/mattn/go-isatty v0.0.12 // indirect\n\tgithub.com/matttproud/golang_protobuf_extensions
+    v1.0.1 // indirect\n\tgithub.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+    // indirect\n\tgithub.com/modern-go/reflect2 v1.0.2 // indirect\n\tgithub.com/prometheus/client_model
+    v0.2.0 // indirect\n\tgithub.com/prometheus/common v0.32.1 // indirect\n\tgithub.com/prometheus/procfs
+    v0.7.3 // indirect\n\tgithub.com/tidwall/match v1.1.1 // indirect\n\tgithub.com/tidwall/pretty
+    v1.2.0 // indirect\n\tgithub.com/ugorji/go/codec v1.1.7 // indirect\n\tgolang.org/x/crypto
+    v0.0.0-20200622213623-75b288015ac9 // indirect\n\tgolang.org/x/sys v0.0.0-20220114195835-da31bd327af9
+    // indirect\n\tgoogle.golang.org/protobuf v1.26.0 // indirect\n\tgopkg.in/yaml.v2
+    v2.4.0 // indirect\n)\n"
+  main.go: "package main\n\nimport (\n\t\"prometheus/restartCount\"\n\n\t\"github.com/gin-gonic/gin\"\n\t\"github.com/prometheus/client_golang/prometheus/promhttp\"\n)\n\nfunc
+    main() {\n\tr := gin.Default()\n\tr.GET(\n\t\t\"/metrics\",\n\t\tfunc(c *gin.Context)
+    { restartCount.StartLoop() },\n\t\tgin.WrapH(promhttp.Handler()),\n\t)\n\tr.Run()\n}\n"
+  restartCount.go: "package restartCount\n\nimport (\n\t\"crypto/tls\"\n\t\"crypto/x509\"\n\t\"fmt\"\n\t\"io/ioutil\"\n\t\"log\"\n\t\"net/http\"\n\n\t\"github.com/prometheus/client_golang/prometheus\"\n\t\"github.com/tidwall/gjson\"\n)\n\nvar
+    (\n\tRestartTotal = prometheus.NewGaugeVec(prometheus.GaugeOpts{\n\t\tName: \"pod_restart_total_count\",\n\t\tHelp:
+    \"Total number of restart count of application pods\",\n\t}, []string{\"namespace\",
+    \"pod_name\", \"under_deployment\"})\n)\n\nfunc init() {\n\t// prometheus.MustRegister(RestartTotal)\n\tprometheus.Register(RestartTotal)\n\n}\n\nfunc
+    StartLoop() {\n\tloopNamespace(\"fa\")\n\tloopNamespace(\"hw\")\n\tloopNamespace(\"mc2\")\n}\n\nfunc
+    loopNamespace(namespaceName string) {\n\n\tcaCert, err := ioutil.ReadFile(\"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt\")\n\tif
+    err != nil {\n\t\tlog.Fatal(err)\n\t}\n\n\tcaCertPool := x509.NewCertPool()\n\tcaCertPool.AppendCertsFromPEM(caCert)\n\n\tclient
+    := &http.Client{\n\t\tTransport: &http.Transport{\n\t\t\tTLSClientConfig: &tls.Config{\n\t\t\t\tRootCAs:
+    caCertPool,\n\t\t\t},\n\t\t},\n\t}\n\n\treq, err := http.NewRequest(\"GET\", \"https://kubernetes.default/api/v1/namespaces/\"+namespaceName+\"/pods\",
+    nil)\n\tif err != nil {\n\t\tlog.Fatal(err)\n\t}\n\n\ttoken, err := ioutil.ReadFile(\"/var/run/secrets/kubernetes.io/serviceaccount/token\")\n\tif
+    err != nil {\n\t\tlog.Fatal(err)\n\t}\n\n\treq.Header.Set(\n\t\t\"Authorization\",\n\t\tfmt.Sprintf(\"%v%v\",
+    \"Bearer \", string(token)),\n\t)\n\n\tresult, err := client.Do(req)\n\tif err
+    != nil {\n\t\tpanic(err)\n\t}\n\n\tbody, err := ioutil.ReadAll(result.Body)\n\tif
+    err != nil {\n\t\tpanic(err)\n\t}\n\tjsonString := string(body)\n\n\tpodList :=
+    gjson.Get(jsonString, \"items\")\n\tpodList.ForEach(func(key, podValue gjson.Result)
+    bool {\n\n\t\tRestartTotal.With(prometheus.Labels{\n\t\t\t\"namespace\":        namespaceName,\n\t\t\t\"pod_name\":
+    \        podValue.Map()[\"metadata\"].Map()[\"name\"].String(),\n\t\t\t\"under_deployment\":
+    podValue.Map()[\"metadata\"].Map()[\"ownerReferences\"].Array()[0].Map()[\"name\"].String(),\n\t\t}).Set(podValue.Map()[\"status\"].Map()[\"containerStatuses\"].Array()[0].Map()[\"restartCount\"].Float())\n\n\t\treturn
+    true\n\t})\n}\n"

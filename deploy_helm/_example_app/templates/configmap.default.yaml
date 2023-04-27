@@ -1,0 +1,14 @@
+apiVersion: v1 
+kind: ConfigMap
+metadata:
+  name: cm-of-{{ .Chart.Name }}
+data:
+  index.html: |-
+    <p>this is from configmap</p>
+  config.yaml: |-
+    app1:
+      key1: value1
+      key2: value2
+    app2:
+      key1: value1
+      key2: value2

@@ -1,0 +1,131 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cj-backup-mongo-to-google-drive
+spec:
+  schedule: "* * 30 2 *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Replace
+  jobTemplate:
+    spec:
+      parallelism: 1
+      completions: 1
+      backoffLimit: 3
+      activeDeadlineSeconds: 3600 # 180
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          name: mongo-backup-er
+        spec:
+          restartPolicy: Never
+          volumes:
+            - name: shellscripts
+              configMap:
+                name: cm-google-shell-script
+                defaultMode: 0700
+          containers:
+            - name: j-backup-mongo-to-google-drive
+              image: mongo:5
+              volumeMounts:
+                - name: shellscripts
+                  mountPath: /google
+              command:
+                - bash
+              args:
+                - -c
+                - |
+                  cd / &&
+                  mongodump --uri=mongodb://mongo-0.mongo:27017 -o /backupFiles &&
+                  export timestr=$(date --date=now +%Y_%m_%d_%H_%M_%S) &&
+                  tar -czvf /bkup.$timestr.tar.gz backupFiles &&
+                  apt update && apt install curl -y &&
+                  cp -r /google /google2 &&
+                  cp /bkup.$timestr.tar.gz /google2/bkup.$timestr.tar.gz &&
+                  cd /google2 &&
+                  mkdir -p ./credentials &&
+                  cp ./service-account.json ./credentials/service-account.json &&
+                  ./accesstoken.sh ./credentials/service-account.json "https://www.googleapis.com/auth/drive" &&
+                  ./upload.sh ./credentials/_sa_accesstoken 1MWQwSmY9IefaI77u3ZyC8CxcPF36fPFf application/gzip bkup.$timestr.tar.gz
+
+
+# k create job temp --from=cj/cj-backup-mongo-to-google-drive
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm-google-shell-script
+data:
+  accesstoken.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    path_to_sa_json="$1"
+    scope="$2"
+    lifespan=${3:-3600}
+    jwt_token=$(./jwttoken.sh "$path_to_sa_json" "$scope" $lifespan)
+    echo -n $jwt_token > ./credentials/_jwt_token
+    accesstoken=$(curl -s -X POST https://www.googleapis.com/oauth2/v4/token \
+        --data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer' \
+        --data-urlencode "assertion=$jwt_token")
+    mkdir -p credentials
+    echo -n $accesstoken > ./credentials/_sa_accesstoken.json
+    echo -n $accesstoken | jq -r .access_token
+    echo -n $accesstoken | jq -r .access_token | sed 's/\(\.\*\?\)\(\.\.\.\.\+\)//g' > ./credentials/_sa_accesstoken
+  jwttoken.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    base64var() {
+        printf "$1" | base64stream
+    }
+    base64stream() {
+        base64 | tr '/+' '_-' | tr -d '=\n'
+    }
+    key_json_file="$1"
+    scope="$2"
+    valid_for_sec="${3:-3600}"
+    private_key=$(jq -r .private_key $key_json_file)
+    sa_email=$(jq -r .client_email $key_json_file)
+    header='{"alg":"RS256","typ":"JWT"}'
+    claim=$(cat <<EOF | jq -c
+      {
+        "iss": "$sa_email",
+        "scope": "$scope",
+        "aud": "https://www.googleapis.com/oauth2/v4/token",
+        "exp": $(($(date +%s) + $valid_for_sec)),
+        "iat": $(date +%s)
+      }
+    EOF
+    )
+    request_body="$(base64var "$header").$(base64var "$claim")"
+    signature=$(openssl dgst -sha256 -sign <(echo "$private_key") <(printf "$request_body") | base64stream)
+    printf "$request_body.$signature"
+  upload.sh: |
+    #!/bin/bash
+    bearertoken=$(cat $1)
+    parentDirectory=$2
+    fileType=$3
+    fileToUpload=$4
+    parents=${parentDirectory:-''}
+    if [[ -n $parents ]]; then
+      parents=", parents: ['${parents}']"
+    fi
+    echo "Uploading to directory: $parents"
+    curl -X POST \
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart" \
+      -L -H "Authorization: Bearer ${bearertoken}" \
+      -F "metadata={name:'${fileToUpload}' ${parents}};type=application/json;charset=UTF-8" \
+      -F "file=@${fileToUpload};type=${fileType}"
+  service-account.json: |
+    {
+      "type": "service_account",
+      "project_id": "methodical-path-361306",
+      "private_key_id": "2f7008bdc7f19294ce49ee69185f42debbd83df9",
+      "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCm/wp+l4CIhdoh\nA773LF6OwvdgCJbN2/5DAtWGYNmKJAP4CAWtfo679dm5cVhx7M4i6JaAVqe3qMRb\nKGSFPDGvf8Yg60Q7s0bww9BJTO4FMCvDV1LBBReme+MGEE2dJiM9RLxmDazgUAf0\nZrh+o656EYoPKWvrQR910wIGpd6N0AOW0RbZk0PUxdpkJTel8M8cKmvH8LooNA1O\nw0Lw8U+NBJVvKk1+MeBaii4VS74stxVedFpFaLrrjaY1KqEDdDARt2OujCOedfLV\n90VUtPVbIDRcI65iMvGYLdQBgbmAJGj6qv9+Hl8kIpiQsozsgPAdPgqQv9uue4xu\nAi5rt/tNAgMBAAECggEAC0ih4KZjgrYKpF7wrRpkJEDTvrst12iVQFllbKBIKq+e\nzghau9uYkOY+iSt5tq7xycWN/8t7JyuB4wfybNdBozJexJQpBuCo+zU78mv+jD6y\nQk948b5il/b4gs0gtWzhhi8KDNpBM2Hs+6xiLHpqXGipe7dIibubgNZaZXEZPdsz\nkLXjUMJmlTUg7GXr/UDRepVJhXkGUXDIsGZFj4dL3IOV7Ui9Q1faes8DhxXR0+7j\no4mdpp9vXW6JHryPPqArUJD6IY81jXW15ZdmLJavfMLSfAobyIaDlZJGKqB+Z9g5\nLeb7byLxnblNhID/gHGB88hFx5Ht1QN9x+9tJ9gTKQKBgQDfPyL0PP0CxqU1u8Aa\nCjB3gCdIwRkj7YrWuJCJ0HJJAgqILcpFquxn+pfeJkEQLSkTmx9gvsFXmVtnvka6\nxW/AD8jUCCjH7l9mAvgi4nEKQWzDnaSc4AeO9SvtgIgcxfyXN3n3i7DyYPMxXS47\nI3NEjJB4616yacNNDIRsSfi3BQKBgQC/fzYA0BVupabFUbs3d/LiXFU4zmqRax1n\ntxSIqgzp6J5eFQoI1QrU4H0nas8GLH1s7wlY9SO14ePvvU7Dcaljoww4lcMoi2gO\nk8N5Gu+ckVYteZhbOUgu4Hfkg9s3ZPqCR68niJyzCTo6igtHMegr6rvnAzVnedug\nB69TYUDVqQKBgDIBmnrLDoGIrYkTvTwX/DNIaYRKfK8njmn6faXhIzhnVKScXSqt\n1raT02DXgMt20jSqEqVBFV3h5C+g14cOorGK15lnGntuUcAv+hUWU+vQK+TFcxIQ\nvKCxGl3g5JxNXP8iVhe1GrWwMclk7e4hSriYI+RyFIwyVKT1oNQA3c1hAoGAW3jf\nienbovvburt8y1UvnvLt/nGTNB1PcYBhfZqFCqKEK3qvTWK+hsso3VBGzbMowoU4\nGNcYFMRvRdBOtEsx15dFui3HiDF3JidtIwc717UQzi4cGc817LZqbqyRZVeF1f95\n6k92Uosg1l+kXYC4X2oEEahVtTTfNQUWuaRl/OkCgYEAsOovAcZW3VOs3CPE6uRb\n2x64BE+kl38EUL9E/XyWAiO2NVDI+LK6nt5LxhOZCdZIlcJ4z8VjX3A406Z8R9r4\nkQajhyiGqWTMscd3VYVTCgWOGHcsZ/GOMbHIC+zIZahqK/+Kho3GTnPwrSV8xpXF\n/fZyoE+Ye0vMYj0UJjJgx2s=\n-----END PRIVATE KEY-----\n",
+      "client_email": "ppwi-270@methodical-path-361306.iam.gserviceaccount.com",
+      "client_id": "108314291965920211845",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/ppwi-270%40methodical-path-361306.iam.gserviceaccount.com"
+    }

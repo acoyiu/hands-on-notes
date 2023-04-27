@@ -1,0 +1,39 @@
+apiVersion: v1
+data:
+  go.mod: "module gorunner\n\ngo 1.19\n\nrequire (\n\tgithub.com/prometheus/client_golang
+    v1.12.1\n\tgithub.com/samber/lo v1.27.0\n)\n\nrequire (\n\tgithub.com/beorn7/perks
+    v1.0.1 // indirect\n\tgithub.com/cespare/xxhash/v2 v2.1.2 // indirect\n\tgithub.com/golang/protobuf
+    v1.5.2 // indirect\n\tgithub.com/matttproud/golang_protobuf_extensions v1.0.1
+    // indirect\n\tgithub.com/prometheus/client_model v0.2.0 // indirect\n\tgithub.com/prometheus/common
+    v0.32.1 // indirect\n\tgithub.com/prometheus/procfs v0.7.3 // indirect\n\tgolang.org/x/exp
+    v0.0.0-20220303212507-bbda1eaf7a17 // indirect\n\tgolang.org/x/sys v0.0.0-20220114195835-da31bd327af9
+    // indirect\n\tgoogle.golang.org/protobuf v1.28.0 // indirect\n)\n"
+  main.go: "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"sync\"\n\t\"time\"\n\n\t\"github.com/prometheus/client_golang/prometheus\"\n\t\"github.com/prometheus/client_golang/prometheus/push\"\n\t\"github.com/samber/lo\"\n)\n\n//
+    =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n//
+    Create Metrics\nvar completionTime = prometheus.NewGauge(prometheus.GaugeOpts{\n\tName:
+    \"db_backup_last_completion_timestamp_seconds\",\n\tHelp: \"The timestamp of the
+    last successful completion of a DB backup.\",\n})\n\nfunc GaugePusher() {\n\n\t//
+    set metrics to currenttime, set可以设置任意值（float64）, e.g.:completionTime.Set(200)\n\tcompletionTime.SetToCurrentTime()\n\n\t//
+    Grouping label, 不是 metric‘s label，给指标添加标签，可以添加多个\n\t// instance 係必定會有的字段，default
+    係 empty String\n\terr := push.New(\"http://pushgateway-service:9091\", \"job_name\").\n\t\tCollector(completionTime).\n\t\tGrouping(\"db\",
+    \"customers\").\n\t\tGrouping(\"instance\", \"1.1.1.1\").\n\t\tPush()\n\n\tif
+    err != nil {\n\t\tfmt.Println(\"Could not push completion time to Pushgateway:\",
+    err)\n\t} else {\n\t\tfmt.Println(\"Push success!\")\n\t}\n}\n\n// =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\nvar
+    (\n\tpushTo    = \"http://pushgateway-service:9091\"\n\tjobName   = \"job_name\"\n\tendpoints
+    = []string{\n\t\t\"http://123.57.136.251\",\n\t\t\"https://api.funacademycn.com\",\n\t\t\"https://highlights.milkcargo.cn\",\n\t}\n\tPingTimeToSvc
+    = prometheus.NewGaugeVec(prometheus.GaugeOpts{\n\t\tName: \"ping_time_to_service\",\n\t\tHelp:
+    \"Total time used to ping target service\",\n\t}, []string{\"endpoint_url\"})\n)\n\nvar
+    wg = sync.WaitGroup{}\n\nfunc PingPusher() {\n\n\twg.Add(len(endpoints))\n\n\tlo.ForEach(endpoints,
+    func(ep string, _ int) {\n\n\t\tgo func() {\n\t\t\tclient := http.Client{\n\t\t\t\tTimeout:
+    5 * time.Second,\n\t\t\t}\n\n\t\t\tsTime := time.Now().UnixMilli()\n\n\t\t\t_,
+    err := client.Get(ep)\n\n\t\t\tif err != nil {\n\t\t\t\tPingTimeToSvc.\n\t\t\t\t\tWith(prometheus.Labels{\"endpoint_url\":
+    ep}).\n\t\t\t\t\tSet(5000)\n\t\t\t} else {\n\t\t\t\teTime := time.Now().UnixMilli()\n\n\t\t\t\tPingTimeToSvc.\n\t\t\t\t\tWith(prometheus.Labels{\"endpoint_url\":
+    ep}).\n\t\t\t\t\tSet(float64(eTime - sTime))\n\t\t\t}\n\n\t\t\twg.Done()\n\t\t}()\n\t})\n\n\twg.Wait()\n\n\terr
+    := push.New(pushTo, jobName).\n\t\tCollector(PingTimeToSvc).\n\t\tGrouping(\"instance\",
+    \"tester\").\n\t\tPush()\n\n\tif err != nil {\n\t\tfmt.Println(\"Could not push
+    completion time to Pushgateway:\", err)\n\t} else {\n\t\tfmt.Println(\"Push success!\")\n\t}\n}\n\n//
+    =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\nfunc
+    main() {\n\t// GaugePusher()\n\tPingPusher()\n}\n"
+kind: ConfigMap
+metadata:
+  name: gofiles

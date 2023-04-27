@@ -1,0 +1,37 @@
+# 如下定义一个 ClusterWorkflow
+
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: cluster-workflow-template-whalesay-template
+spec:
+  templates:
+    - name: whalesay-template
+      inputs:
+        parameters:
+          - name: message
+      container:
+        image: docker/whalesay
+        command: [cowsay]
+        args: ["{{inputs.parameters.message}}"]
+
+---
+# 然后在 workflow 中使用 templateRef 去引用它
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: workflow-template-hello-world-
+spec:
+  entrypoint: whalesay
+  templates:
+    - name: whalesay
+      steps:
+        - - name: call-whalesay-template
+            templateRef: # 引用模板
+              name: cluster-workflow-template-whalesay-template # ClusterWorkflow 名
+              template: whalesay-template # 在 clusterTemplate 内具体的模板名
+              clusterScope: true # 表示是 ClusterWorkflow
+            arguments:
+              parameters:
+                - name: message
+                  value: "hello world"

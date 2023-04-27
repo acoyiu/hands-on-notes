@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: webhook-sensor
+spec:
+  dependencies:
+    - name: webhook-dependency
+      eventSourceName: webhook-event-source
+      eventName: this-should-be-the-event-name
+  triggers:
+    - template:
+        name: webhook-trigger
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: v1
+              kind: Pod
+              metadata:
+                labels:
+                  run: nginx
+                name: nginx
+                namespace: default
+              spec:
+                restartPolicy: Always
+                containers:
+                  - image: nginx:alpine
+                    name: nginx
+                    resources: {}

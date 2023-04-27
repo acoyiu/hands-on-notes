@@ -1,0 +1,13 @@
+app:
+  name: node-trial
+  description: this is a node js trial of helm
+  label: node-trial-label
+  replicas: 2
+
+spec:
+  imagePullPolicy: Always
+  imagePullSecrets: k8s-secret-name
+  fromRegistry: 192.168.0.170:34000
+  image: project1
+  tag: d-May-02
+  servicePort: 8080

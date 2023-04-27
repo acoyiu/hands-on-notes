@@ -1,0 +1,35 @@
+app:
+  replicaCount: &replicaNum 1
+  image: nginx
+  svcPort: 8080
+  podPort: 80
+
+deployAnno:
+  kubernetes.io/change-cause: change-message-of-each-time
+
+extraContainers:
+  - resources: {}
+    name: pod-extra-node
+    image: node:alpine
+    command:
+      - sh
+      - -c
+      - "npx -y http-server -c-1 -p 8081"
+
+autoscaling:
+  enabled: false
+  minReplicas: *replicaNum
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 75
+#
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+## Dry-run, Remember to update change cause
+# helm [-n namespace-name] upgrade -i test . --dry-run
+
+## Real run
+# helm [-n namespace-name] upgrade -i test .
+
+## Testing
+# kubectl run tmp --image=nginx:alpine --rm -i --restart=Never --command -- curl svc-service-tester.mc2:8080

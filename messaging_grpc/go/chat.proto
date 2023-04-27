@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package chat;
+
+option go_package = "/chat";
+
+message Message {
+  string body = 1;
+}
+
+service ChatService {
+  rpc UnaryRequest(Message) returns (Message) {}
+  rpc ClientStreamRequest(stream Message) returns (Message);
+  rpc ServerStreamRequest(Message) returns (stream Message);
+  rpc BidiStreamRequest(stream Message) returns (stream Message);
+}

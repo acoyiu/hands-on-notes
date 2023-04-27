@@ -1,0 +1,17 @@
+[package]
+name = "rust-kube-rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1.26.0", features = ["full"] }
+kube = { version = "0.80.0", features = ["runtime", "derive"] }
+k8s-openapi = { version = "0.17.0", features = ["v1_26"] }
+serde_json = { version = "1.0.94" }
+tracing = "0.1.36"
+tracing-subscriber = "0.3.3"
+anyhow = { version = "1.0.69" }
+serde = { version = "1.0.156" }
+futures = { version = "0.3.27"}

@@ -1,0 +1,97 @@
+#!/bin/bash
+
+paramsArray=("$@")
+paramlength=${#paramsArray[@]}
+
+actionTag=$1
+action="up -d"
+
+if [[ $actionTag == 'up' ]]; then
+    action="up -d"
+elif [[ $actionTag == 'down' ]]; then
+    action="down"
+elif [[ $actionTag == 'restart' ]]; then
+    action="restart"
+fi
+
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+printf "${GREEN}[Action]${NC} ${actionTag}\n"
+
+# create docker network if in start
+if [[ $actionTag == "up" ]]; then
+    docker network create -d bridge app-launcher-network
+    printf "${GREEN}app-launcher-network network is created${NC}\n"
+
+    # make up "dependencies"
+    if [[ -e ./dependencies ]]; then
+        cd ./dependencies
+        if [[ -e ./prebuild.sh ]]; then
+            ./prebuild.sh
+        fi
+        if [[ -e ./docker-compose.yml ]]; then
+            docker-compose -p "dependencies" up -d
+        fi
+        if [[ -e ./postbuild.sh ]]; then
+            ./postbuild.sh
+        fi
+        cd ../
+    fi
+fi
+
+# check pre-build script for up
+if [[ $actionTag == "up" ]]; then
+    for d in *; do
+        if [[ ! $d =~ ^_ ]] && [[ -d "$d" ]] && [[ -e "./${d}/_dev/prebuild.sh" ]]; then
+            printf "${GREEN}[Pre-build]${NC} ${d}\n"
+            cd "./${d}" && ./_dev/prebuild.sh && cd ../
+        fi
+    done
+fi
+
+# loop all directories exclude certain name
+for d in *; do
+    if [[ $d != "dependencies" ]] && [[ ! $d =~ ^_ ]] && [[ -d "$d" ]] && [[ -e "./${d}/_dev/docker-compose.yml" ]]; then
+        if [[ $action == "restart" && $paramlength > 1 ]]; then
+            # restart specific services, check if folder is included in specified names
+            for arg in "${paramsArray[@]}"; do
+                if [[ $d == $arg ]]; then
+                    printf "${GREEN}[Process...]${NC} ${d}\n"
+                    echo "Only restarting: $arg..."
+                    cd "./${d}" && docker-compose -f "./_dev/docker-compose.yml" -p $d $action && cd ../
+                fi
+            done
+        else
+            # perform action
+            printf "${GREEN}[Process...]${NC} ${d}\n"
+            cd "./${d}" && docker-compose -f "./_dev/docker-compose.yml" -p $d $action && cd ../
+        fi
+    fi
+done
+
+# check Post-build script for up
+if [[ $actionTag == "up" ]]; then
+    for d in *; do
+        if [[ ! $d =~ ^_ ]] && [[ -d "$d" ]] && [[ -e "./${d}/_dev/postbuild.sh" ]]; then
+            printf "${GREEN}[Post-build]${NC} ${d}\n"
+            cd "./${d}" && ./_dev/postbuild.sh && cd ../
+        fi
+    done
+fi
+
+# remove docker network if down
+if [[ $action == "down" ]]; then
+
+    # clean up dependencies
+    cd ./dependencies
+    if [[ -e ./docker-compose.yml ]]; then
+        docker-compose down
+    fi
+    cd ../
+
+    # delete network
+    docker network rm app-launcher-network
+    printf "${GREEN}app-launcher-network network is deleted${NC}\n"
+fi

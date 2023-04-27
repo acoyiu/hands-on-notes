@@ -1,0 +1,38 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: certificate-application
+  namespace: default
+spec:
+  secretName: cert-application
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  # SSL 裏面的 Subject field
+  subject:
+    organizations:
+      - PPWI
+ 
+  # 自設 CA 為 true
+  isCA: false
+
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+
+  # x509 extension 入邊的 用途
+  usages:
+    - server auth
+    - client auth
+
+  # 三者中至少需要 DNS 名稱、URI 或 IP 地址其中之一，用途同 SubjectAlternativName 一樣
+  dnsNames: [application.milkcargo.cn]
+  # uris: [spiffe://cluster.local/ns/sandbox/sa/example]
+  # ipAddresses: [192.168.0.5]
+
+  # 指定發行人（Issuer）
+  issuerRef:
+    kind: ClusterIssuer # ClusterIssuer || Issuer
+    name: master-cluster-clusterissuer

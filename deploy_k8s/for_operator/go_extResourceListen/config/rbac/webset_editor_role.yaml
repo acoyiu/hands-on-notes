@@ -1,0 +1,24 @@
+# permissions for end users to edit websets.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: webset-editor-role
+rules:
+- apiGroups:
+  - aco.test.com
+  resources:
+  - websets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - aco.test.com
+  resources:
+  - websets/status
+  verbs:
+  - get

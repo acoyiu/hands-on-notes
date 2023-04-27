@@ -1,0 +1,10 @@
+pushgateway_location: 192.168.0.107:9091
+ips:
+  - - 192.168.0.8
+    - normandy_1
+  - - 192.168.0.222
+    - normandy_2
+  - - 192.168.0.112
+    - surface_pro
+  - - 192.168.0.15
+    - gitea_server

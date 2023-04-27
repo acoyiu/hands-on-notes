@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-runner-deploy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      usage: file-runner
+  template:
+    metadata:
+      name: file-runner-pod
+      labels:
+        usage: file-runner
+    spec:
+      containers:
+        - resources: {}
+          name: file-runner-container
+          image: golang:alpine
+          ports:
+            - containerPort: 8080
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - >-
+              mkdir /unzip && tar -xf /appfiles/app.tar -C /unzip && cd /unzip/app &&
+              go mod tidy &&
+              go run main.go
+          volumeMounts:
+            - mountPath: /appfiles
+              name: files
+      volumes:
+        - name: files
+          configMap:
+            name: appfiles

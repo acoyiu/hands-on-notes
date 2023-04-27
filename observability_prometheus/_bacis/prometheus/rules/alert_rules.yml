@@ -1,0 +1,29 @@
+# Prometheus alert resolve 左之後，alertManager 的 alert 都會消失掉的 ！！
+
+groups:
+  - name: nameOfRule
+    rules:
+      - alert: nameOfAlert
+
+        # #Toggle below lines to test alert manager 
+        expr: axios_success_rate{target="app1"} > 50
+        # expr: node_demo_metric{author="kong"} > 0
+
+        # {label != ""} label 不等於 empty，等於全選，全部都監察 !!!!!!!!!!!!!!!!!!!!!!
+        # expr: ping_time_to_service{endpoint!=""} > 1
+
+        for: 20s # or 20m
+        labels:
+          severity: urgent
+
+        # Templating: can use special param in template， like "html"
+        # https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/
+        
+        annotations: # all the label value can be dot(.) out from "$labels"
+          summary: >
+            1: {{ $labels.instance }}
+            2: {{ $labels.job }}
+
+          link: "http://xxx"
+          color: "#xxx"
+          custom-thing: "hihi"

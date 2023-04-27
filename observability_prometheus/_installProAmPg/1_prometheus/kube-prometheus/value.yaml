@@ -1,0 +1,7 @@
+global:
+  storageClass: nfs-client-2
+prometheus:
+  persistence:
+    enabled: true
+  replicaCount: 1
+  retention: 10d

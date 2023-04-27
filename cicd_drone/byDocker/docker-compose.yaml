@@ -1,0 +1,95 @@
+version: "2"
+
+services:
+
+  drone-server:
+    image: drone/drone:2
+    container_name: drone-server
+    ports:
+      - 28000:80
+    volumes:
+      - ./data:/data
+    restart: always
+    environment:
+      # Where is the drone server
+      - 'DRONE_SERVER_PROTO=${DRONE_SERVER_PROTO}'
+      - 'DRONE_SERVER_HOST=${DRONE_SERVER_HOST}'
+      - 'DRONE_RPC_SECRET=${DRONE_RPC_SECRET}' # custom key
+      # Gitea
+      # Redirect URL == DroneServer/login :: e.g.: http://192.168.0.170:13001/login
+      - 'DRONE_GITEA_CLIENT_ID=${DRONE_GITEA_CLIENT_ID}' # Generated from Gitea: client id
+      - 'DRONE_GITEA_CLIENT_SECRET=${DRONE_GITEA_CLIENT_SECRET}' # Generated from Gitea: client secret
+      - 'DRONE_GITEA_SERVER=${DRONE_GITEA_SERVER}' # gitea server Location
+      - 'DRONE_GIT_ALWAYS_AUTH=${DRONE_GIT_ALWAYS_AUTH}'
+      # If need use host functionality
+      - 'DRONE_USER_CREATE=${DRONE_ADMIN_USER}'
+      # logs
+      - DRONE_LOGS_PRETTY=true
+      - DRONE_LOGS_COLOR=true
+      - DRONE_LOGS_DEBUG=true
+      - DRONE_LOGS_TRACE=true
+
+  drone-agent-1:
+    # image: drone/drone-runner-docker:linux-amd64 # Mac Docker will get arm64 image, which will cause pending
+    image: drone/drone-runner-docker:1.8.1-linux-amd64
+    container_name: drone-runner-1
+    ports:
+      - 13002:3000
+    restart: always
+    depends_on:
+      - drone-server
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - 'DRONE_RPC_PROTO=${DRONE_SERVER_PROTO}'
+      - 'DRONE_RPC_HOST=${DRONE_SERVER_HOST}'
+      - 'DRONE_RPC_SECRET=${DRONE_RPC_SECRET}' # custom key
+      - DRONE_RUNNER_CAPACITY=2
+      - DRONE_RUNNER_NAME=runner_1
+      - DRONE_RPC_DUMP_HTTP=true
+      - DRONE_RPC_DUMP_HTTP_BODY=true
+      # logs
+      - DRONE_LOGS_PRETTY=true
+      - DRONE_LOGS_COLOR=true
+      - DRONE_LOGS_DEBUG=true
+      - DRONE_LOGS_TRACE=true
+
+  drone-agent-2:
+    # image: drone/drone-runner-docker:linux-amd64 # Mac Docker will get arm64 image, which will cause pending
+    image: drone/drone-runner-docker:1.8.1-linux-amd64
+    container_name: drone-runner-2
+    ports:
+      - 13003:3000
+    restart: always
+    depends_on:
+      - drone-server
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - 'DRONE_RPC_PROTO=${DRONE_SERVER_PROTO}'
+      - 'DRONE_RPC_HOST=${DRONE_SERVER_HOST}'
+      - 'DRONE_RPC_SECRET=${DRONE_RPC_SECRET}' # custom key
+      - DRONE_RUNNER_CAPACITY=2
+      - DRONE_RUNNER_NAME=runner_2
+      - DRONE_RPC_DUMP_HTTP=true
+      - DRONE_RPC_DUMP_HTTP_BODY=true
+      # logs
+      - DRONE_LOGS_PRETTY=true
+      - DRONE_LOGS_COLOR=true
+      - DRONE_LOGS_DEBUG=true
+      - DRONE_LOGS_TRACE=true
+
+  ssh-runner-3:
+    image: drone/drone-runner-ssh
+    container_name: drone-runner-3
+    ports:
+      - 13004:3000
+    restart: always
+    depends_on:
+      - drone-server
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - 'DRONE_RPC_PROTO=${DRONE_SERVER_PROTO}'
+      - 'DRONE_RPC_HOST=${DRONE_SERVER_HOST}'
+      - 'DRONE_RPC_SECRET=${DRONE_RPC_SECRET}'

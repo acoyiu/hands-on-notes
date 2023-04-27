@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sidecar-logger
+spec:
+  # One volume to share between 2 container in 1 pod
+  volumes:
+    - name: shared-logs
+      emptyDir: {} # <- Must use "emptyDir:{}" to use linux file system
+
+  containers:
+    - name: con-nginx
+      resources: {}
+      image: nginx:1.7.9
+      ports:
+        - containerPort: 80
+      volumeMounts:
+        - name: shared-logs
+          mountPath: /var/log/nginx
+          # nginx write logs to file:/var/log/nginx/access.log
+
+    - name: com-logger
+      resources: {}
+      image: "busybox"
+      command: ["sh", "-c", "tail -f /logging/access.log"]
+      volumeMounts:
+        - name: shared-logs
+          mountPath: /logging
+#
+#
+# in terminal 1:
+# kubectl apply -f ./2_podWithSidecar.yaml
+# kubectl port-forward sidecar-logger 20080:80
+
+# in terminal 2:
+# kubectl logs -f pod/sidecar-logger -c com-logger
+
+# in terminal 3:
+# curl localhost:20080

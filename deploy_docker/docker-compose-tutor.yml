@@ -1,0 +1,113 @@
+# https://yeasy.gitbook.io/docker_practice/compose/compose_file
+
+# https://docs.docker.com/compose/reference/ 
+
+# // Run specific docker-compose file
+# docker-compose -f [TargetFile] up -d 
+# docker-compose -f [TargetFile] down
+
+# docker-compose up --build -d # <- for rebuild everytime
+
+# docker-compose down
+
+#
+# 默認情況下，Compose 會為您的應用程序設置一個網絡。 
+# 服務的每個容器都加入默認網絡，並且可以被該網絡上的其他容器訪問，
+# 並且可以通過與容器名稱相同的主機名被它們發現。
+# 
+# replace "NameOfTheNetwork" to the name desired
+#
+
+
+# docker-compose.yml 裡面的 $PWD 是 reference 緊 terminal 的 PWD，不是 compose file 的 PWD
+
+
+
+volumes:                            # define storage volume
+  storagevol:                       # drive name
+    driver: local                   # type of volume, mostly "local"
+
+services:                           # define service
+  mongo:                            # the service name
+    image: mongo:5.0.2              # image
+    container_name: mongo-server    # custom name to container
+    restart: always                 # restart policy
+    deploy:                         # HA policy
+      replicas: 3
+    ports:                          # bind to host port [multiple]
+      - 27017:27017
+      - 27018:27018
+    volumes:
+      - storagevol:/data/db         # map docker volume into container
+      - ./data:/data                # bind host volume into container
+    volumes:
+      - type: bind                             # detail way to bind volume
+        source: ./logstashPipeline/            # host path or remote path
+        target: /usr/share/logstash/pipeline   # map to path inside container
+        read_only: true                        # is it read-only, if false, than can write by-directional
+    environment: 
+      MONGO_INITDB_ROOT_USERNAME: root     # set environment variable
+      MONGO_INITDB_ROOT_PASSWORD: example
+    working_dir: '/app'                    # set the $pwd
+    networks:
+      NameOfTheNetwork:
+        ipv4_address: 10.5.0.4    # fix address for network mode 1
+
+
+  parse:
+    build: ./parse/                 # [alternative to image] to use dockerfile instead of image
+    command: "config.json"          # command to run after container is ran
+    command: /bin/bash -c "npm i && node ./codeExpress/index.js" # foe nodejs command
+    ports:
+      - 1337:1337
+    ulimits:                        # system resource usage limitation
+      memlock:                      # max memory lock, "-1" for no limitation
+        soft: -1
+        hard: -1
+    networks:
+      NameOfTheNetwork:
+        ipv4_address: 10.5.0.5      # fix address for network mode 1
+    # OR
+    networks:
+      - parseapp
+    entrypoint: >                   # Multiline commands
+      bash -c "
+        for i in {1..10};
+        do mongo --host mongodb --eval 'if (!rs.status().ok) rs.initiate();' &&
+        break || sleep 3;
+        done"
+
+  # node temp runner
+  nodeEnv:
+    image: node:alpine3.15
+    container_name: app-project-1
+    volumes:
+      - $PWD/project1:/app
+    command: sh -c "cd /app && npm i && node index.js"
+    ports:
+      - "3000:3000"
+
+
+
+networks:                         # Network mode 1
+  NameOfTheNetwork: 
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1
+
+networks:                         # Network mode 2
+  NameOfTheNetwork:               # every container inside the same network can use other container's name as domain
+    driver: bridge
+    name: name_of_the_external_network 
+
+# global volume mount to local machine
+volumes:
+  certs:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: './data/certs'

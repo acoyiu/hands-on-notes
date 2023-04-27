@@ -1,0 +1,34 @@
+# One of the solution to alter the config of ingress-nginx on alicloud is edit the default nginx-config config map
+
+apiVersion: v1
+data:
+  allow-backend-server-header: "true"
+  enable-underscores-in-headers: "true"
+  generate-request-id: "true"
+  ignore-invalid-headers: "true"
+  log-format-upstream:
+    $remote_addr - [$remote_addr] - $remote_user [$time_local]
+    "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_length
+    $request_time [$proxy_upstream_name] $upstream_addr $upstream_response_length
+    $upstream_response_time $upstream_status $req_id $host [$proxy_alternative_upstream_name]
+  max-worker-connections: "65536"
+  proxy-body-size: 20m
+  proxy-connect-timeout: "10"
+  reuse-port: "true"
+  server-tokens: "false"
+  ssl-redirect: "false"
+  upstream-keepalive-timeout: "900"
+  worker-cpu-affinity: auto
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"allow-backend-server-header":"true","enable-underscores-in-headers":"true","generate-request-id":"true","ignore-invalid-headers":"true","log-format-upstream":"$remote_addr - [$remote_addr] - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\" $request_length $request_time [$proxy_upstream_name] $upstream_addr $upstream_response_length $upstream_response_time $upstream_status $req_id $host [$proxy_alternative_upstream_name]","max-worker-connections":"65536","proxy-body-size":"20m","proxy-connect-timeout":"10","reuse-port":"true","server-tokens":"false","ssl-redirect":"false","upstream-keepalive-timeout":"900","worker-cpu-affinity":"auto"},"kind":"ConfigMap","metadata":{"annotations":{},"labels":{"app":"ingress-nginx"},"name":"nginx-configuration","namespace":"kube-system"}}
+  creationTimestamp: "2021-03-10T09:04:05Z"
+  labels:
+    app: ingress-nginx
+  name: nginx-configuration
+  namespace: kube-system
+  resourceVersion: "1306"
+  selfLink: /api/v1/namespaces/kube-system/configmaps/nginx-configuration
+  uid: dbde283a-c75b-4a68-b4ee-f3b794ec6375

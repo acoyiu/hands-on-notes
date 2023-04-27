@@ -1,0 +1,5 @@
+app:
+  mdname: nginx-a
+  replicaCount: 10
+app2:
+  image: nginx

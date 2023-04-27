@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: testing-argo-application                          # argo-application-name, the app which listen to the git
+  namespace: testing-argo                                 # namespace to deploy the Argo Application
+spec:
+  project: default                                        # mostly as "default"
+  source:
+    repoURL: https://username:password@gitea.com/abc.git  # The Git repo to listen
+    targetRevision: HEAD                                  # which git target, "HEAD" = latest commit
+    path: dev                                             # which directory to watch changes
+  destination:
+    server: https://kubernetes.default.svc                # which kubernetes to deploy to
+    namespace: testing                                    # which namespace to deploy application's asset
+  syncPolicy:
+    automated:
+      prune: true                                         # will delete old resource after renaming
+      selfHeal: true                                      # will restore wanted state even for manual actions 
+    syncOptions:
+      - CreateNamespace=true                              # will create namespace if no existed (有可能 Fail)
+      - Replace=true                                      # 替換資源而不是更改
+      - PruneLast=true                                    # 未確認成功前不 prune 資源

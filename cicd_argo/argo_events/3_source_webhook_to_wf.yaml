@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: webhook-sensor-wf
+spec:
+  dependencies:
+    - name: webhook-dependency
+      eventSourceName: webhook-event-source
+      eventName: this-should-be-the-event-name
+  triggers:
+    - template:
+        name: webhook-trigger
+        k8s:
+          operation: create
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: sample-wf-
+                labels:
+                  custom-labels: "shown-in-dashboard"
+              spec:
+                entrypoint: the-template-name
+                templates:
+                  - name: the-template-name
+                    container:
+                      image: alpine
+                      command: [sh, -c, "echo 101"]

@@ -1,0 +1,9 @@
+ 
+services:
+  openssh:
+    container_name: container-openssh
+    build: .
+    ports:
+      - "22202:22"
+    volumes:
+      - ./myapp:/app

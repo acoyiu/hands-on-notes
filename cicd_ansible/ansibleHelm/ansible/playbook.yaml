@@ -1,0 +1,27 @@
+---
+- name: "Test Action"
+  hosts: all
+
+  vars_files:
+    - ./credential.yaml
+
+  tasks:
+    - name: Make Developments directory
+      file:
+        path: ~/Developments
+        state: directory
+
+    - name: Make ingress-hl directory
+      file:
+        path: ~/Developments/ingress-hl
+        state: directory
+
+    - name: Pull from git
+      git:
+        repo: http://{{ gituser | urlencode }}:{{ gitpassword | urlencode }}@192.168.0.15:3000/Backend/ingress-hl.git
+        dest: ~/Developments/ingress-hl
+        update: yes
+        version: master
+
+    - name: "Helm Upgrade"
+      shell: "microk8s helm3 upgrade ingress-hl ~/Developments/ingress-hl/."

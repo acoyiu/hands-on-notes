@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-with-auth
+  annotations:
+    nginx.ingress.kubernetes.io/auth-type: basic # type of authentication
+    nginx.ingress.kubernetes.io/auth-secret: nginx-auth # name of the secret that contains the user/password definitions
+    nginx.ingress.kubernetes.io/auth-realm: "Msg said why need auth" # message to display with an appropriate context why the authentication is required
+    nginx.ingress.kubernetes.io/auth-secret-type: auth-map # added after v0.26
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sample
+                port:
+                  number: 8080

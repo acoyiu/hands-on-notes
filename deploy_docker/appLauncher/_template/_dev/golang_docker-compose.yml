@@ -1,0 +1,11 @@
+version: "3"
+
+services:
+  goEnv:
+    image: golang:alpine3.15
+    container_name: app-project-2
+    volumes:
+      - ./:/app
+    command: sh -c "cd /app && go run main.go"
+    ports:
+      - "3001:3000"

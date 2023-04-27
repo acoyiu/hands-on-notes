@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+// package chat; // will create object to enclose all keys
+// option go_package = "/";
+
+message Dialogue {
+  string body = 1;
+}
+
+service ChatService {
+  rpc SayHello(Dialogue) returns (Dialogue) {}
+}

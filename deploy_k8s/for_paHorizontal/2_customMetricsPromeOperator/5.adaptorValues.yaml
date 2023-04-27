@@ -1,0 +1,110 @@
+prometheus:
+  url: http://prometheus-kube-prometheus-prometheus.monitoring # 替换 Prometheus API 的地址 (不写端口)
+  port: 9090
+
+# -----------------------------------------------------------------------------------------
+
+rules:
+  default: false
+  custom:
+    # 查询 Prometheus 的语句，通过这个查询语句查询到的所有指标都可以用于 HPA
+    - seriesQuery: "http_requests_total"
+
+      # -----------------------------------------------------------------------------------------
+
+      # 查询到的指标可能会存在不需要的，可以通过它过滤掉
+
+      seriesFilters: []
+
+      # -----------------------------------------------------------------------------------------
+
+      # Prometheus-Adaptor 不是直接存取 Prometheus 的 metrics，而是從 Prometheus 發現有什麽 metrics，
+      # 然後 discover 這個 metrics 源自于那個 k8s resource，然後自己去 metrics-exporter instance 取出 metrics
+      # 因爲 aggregator 的 api（k8s）的 API-Server 不能存取 Prometheus 的 Database
+
+      # 所以設定是需要知道 metrics 實際上在哪 export 出來
+
+      # 所以要有資訊去表達這個 metrics 應該綁定哪一種 k8s 的 resource
+      # 要綁定的 Resource 種類可以查詢 "kubectl api-resources" 的 "NAME"
+
+      # 例如 export metrics 的是 pod，metrics 就要綁定 pod resource
+      # 所有已綁定的資源（如 Pod），Adapter 就會新增 APIService 入 K8s API Aggregator
+      # Call K8s 的 API 時就會 query pod 的 metrics
+
+      resources:
+        # overrides：它会将指标中的标签和 k8s 资源关联起来，種類可以查詢 -> "kubectl api-resources"
+        overrides:
+          # <label-name>: { resource: <resource-name-to-bind-to> }
+          namespace: { resource: namespace }
+          pod: { resource: pod }
+
+          # kubernetes_namespace: { resource: namespace } # Metrics 上叫 "kubernetes_namespace" 的 label 的值會登記于 Aggregator 相對應的 namespace
+          # kubernetes_pod_name: { resource: pod } # Metrics 上叫 "kubernetes_pod_name" 的 label 的值會登記于 Aggregator 相對應的 pod 名
+
+          # 所以以上會新增 API Service (endpoint), 所以可以用以下 URL-Param 找回相對應的 K8s 資源
+          # /apis/custom.metrics.k8s.io/v1beta1/namespaces/<namespace-name>/pods/<pod-name>/http_requests_total
+          # /apis/custom.metrics.k8s.io/v1beta1/namespaces/<namespace-name>/pods/*/http_requests_total
+
+        # 意思是如果 label 係跟隨某些規則，可以用 template 方法一次過改成 k8s 的名稱
+        template: <<.Resource>>
+        # 所以如果 metrics 有 "service"/"job" 的 label，就會也生成 service/job 的 aggregator
+
+      # -----------------------------------------------------------------------------------------
+
+      # 用来给指标重命名的，之所以要给指标重命名是因为有些指标是只增的，比如以 total 结尾的指标。
+      # 这些指标拿来做 HPA 是没有意义的，我们一般计算它的速率，以速率作为值，
+      # 那么此时的名称就不能以 total 结尾了，所以要进行重命名
+
+      name:
+        matches: "^(.*)_total" # 通过正则表达式来匹配指标名，可以进行分组
+        as: "${1}" # 默认值为 $1，也就是第一个分组 "http_requests_total"。as 为空就是使用默认值的意思
+
+      # -----------------------------------------------------------------------------------------
+
+      # 这就是 Prometheus 的查询语句了，前面的 seriesQuery 查询是获得 HPA 指标。
+      # 当我们要查某个指标的值时就要通过它指定的查询语句进行了。可以看到查询语句使用了速率和分组，
+      # 这就是解决上面提到的只增指标的问题
+
+      metricsQuery: |
+        sum(
+          rate(
+            <<.Series>>{<<.LabelMatchers>>}[15m]
+          )
+        ) by (<<.GroupBy>>)
+
+    # ============================================
+
+    # - seriesQuery: "kube_statefulset_status_update_revision"
+    #   seriesFilters: []
+    #   resources:
+    #     template: <<.Resource>>
+    #   name:
+    #     matches: "^(.*)"
+    #     as: "${1}"
+    #   metricsQuery: |
+    #     kube_statefulset_status_update_revision
+
+    # ============================================
+
+    # - seriesQuery: prometheus_http_requests_total{namespace!="",pod!=""}
+    #   resources:
+    #     overrides:
+    #       # To map old label name to new label name, as label may not comply with k8s's name
+    #       # <old-label-name>: {resource: <new-label-name>}
+    #       namespace: { resource: "namespace" }
+    #       service: { resource: "service" }
+    #       pod: { resource: "pod" }
+    #   name:
+    #     matches: "^(.*)_total"
+    #     as: "${1}_per_second"
+    #   metricsQuery: "sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (<<.GroupBy>>)"
+
+    # - seriesQuery: prometheus_http_requests_total{namespace!=""}
+    #   seriesFilters: []
+    #   resources:
+    #     # 意思是如果 label 係跟隨某些規則，可以用 template 方法一次過改成 k8s 的名稱
+    #     template: <<.Resource>>
+    #   name:
+    #     matches: "^(.*)"
+    #     as: "${1}"
+    #   metricsQuery: <<.Series>>

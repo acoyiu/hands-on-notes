@@ -1,0 +1,35 @@
+global:
+  scrape_interval: 15s                    # 默認情況下，每 15 秒抓取一次目標，可以被覆蓋
+  evaluation_interval: 20s                # rules 檢查的間隔, 預設 1m, 不要大於 scrape_interval 一倍以上
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+rule_files:                               # Rule for alert
+  # - rules/alert_rules.yml
+  - rules/recording_rules.yml
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+scrape_configs:                           # target list, list 裏每個配置 endpoint 只包含一個要抓取的端點
+
+  - job_name: "prometheus"                # 這個是 prometheus 本身的 metrics
+    scrape_interval: 5s                   # 覆蓋全局默認值並每隔 5 秒從該作業中抓取目標。
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "pushgateway"
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["pushgateway:9091"]
+    metric_relabel_configs:               # Used to ignore metrics
+      - source_labels: [__name__]
+        regex: ^temp
+        action: drop                      # "drop" or "keep"
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+alerting:                                 # Alerting
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093

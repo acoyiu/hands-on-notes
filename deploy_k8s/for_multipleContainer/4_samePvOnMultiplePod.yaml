@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: storager-pvc
+  finalizers:
+    - kubernetes.io/pvc-protection
+spec:
+  storageClassName: standard
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 3Gi
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: storager-pvc-reader
+spec:
+  volumes:
+    - name: pvc-volume
+      persistentVolumeClaim:
+        claimName: storager-pvc
+  containers:
+    - name: storager-pvc-reader
+      image: ubuntu
+      command: [sh, -c, "tail -f /dev/null"]
+      volumeMounts:
+        - name: pvc-volume
+          mountPath: /theStorage
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: storager-pvc-reader-2
+spec:
+  volumes:
+    - name: pvc-volume
+      persistentVolumeClaim:
+        claimName: storager-pvc
+  containers:
+    - name: storager-pvc-reader
+      image: ubuntu
+      command: [sh, -c, "tail -f /dev/null"]
+      volumeMounts:
+        - name: pvc-volume
+          mountPath: /theStorage

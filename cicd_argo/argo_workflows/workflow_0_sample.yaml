@@ -1,0 +1,13 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: sample-wf-                  # Resource Prefix，所有這個 workflow 的資源都會 prefix
+  labels:
+    custom-labels: "shown-in-dashboard"     # custom labels，所有這個 workflow 的資源都會有這些 labels
+spec:
+  entrypoint: the-template-name             # 指定 "spec.template" 裏面哪一個 template 為第一個執行
+  templates:
+    - name: the-template-name               # template ~= drone's pipeline ~= K8s's pod
+      container:
+        image: alpine
+        command: [sh, -c, 'sleep 60']      # can use "sleep infinity" to debug

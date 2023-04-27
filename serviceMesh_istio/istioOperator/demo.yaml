@@ -1,0 +1,17 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: demo-istio-install
+spec:
+  profile: demo
+
+  components:
+    egressGateways:
+      - name: istio-egressgateway
+        enable: false
+
+  # meshConfig:
+  #   discoverySelectors:
+  #     - matchLabels:
+  #         env: test # <- namespace label to watch

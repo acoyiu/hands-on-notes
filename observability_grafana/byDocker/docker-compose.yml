@@ -1,0 +1,13 @@
+version: "3.0"
+
+services:
+  grafana:
+    image: grafana/grafana
+    container_name: prom-grafana
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    env_file:
+      - ./config.monitoring
+    volumes:
+      - ./grafana.ini:/etc/grafana/grafana.ini

@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+  name: "{{ .Values.appInitial }}-{{ .Values.stage }}-cj-backup-mongo-to-oss-drive"
+spec:
+  schedule: "{{ .Values.app.mongo.backupCron }}"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Replace
+  jobTemplate:
+    spec:
+      parallelism: 1
+      completions: 1
+      backoffLimit: 3
+      activeDeadlineSeconds: 3600 # 180
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          name: "{{ .Values.appInitial }}-{{ .Values.stage }}-mongo-backup-er"
+          namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+        spec:
+          restartPolicy: Never
+          volumes:
+            - name: oss-secret
+              secret:
+                secretName: "{{ .Values.appInitial }}-{{ .Values.stage }}-cj-oss-secret"
+                defaultMode: 0400
+          containers:
+            - name: "{{ .Values.appInitial }}-{{ .Values.stage }}-job-backup-mongo-to-oss-drive"
+              image: mongo:5
+              volumeMounts:
+                - mountPath: "/oss"
+                  name: oss-secret
+              command:
+                - bash
+              args:
+                - -c
+                - |
+                  apt update && apt install wget -y &&
+                  mkdir -p /app && cd /app &&
+                  wget https://gosspublic.alicdn.com/ossutil/1.7.14/ossutil64 &&
+                  chmod 755 ossutil64 &&
+                  cp /oss/.ossutilconfig ./.ossutilconfig &&
+                  mongodump --uri=mongodb://{{ .Values.appInitial }}-mongo-sts-0.{{ .Values.appInitial }}-mongo-svc:27017,{{ .Values.appInitial }}-mongo-sts-1.{{ .Values.appInitial }}-mongo-svc:27017,{{ .Values.appInitial }}-mongo-sts-2.{{ .Values.appInitial }}-mongo-svc:27017/ -o ./backupFiles &&
+                  export timestr=$(date --date=now +%Y_%m_%d_%H_%M_%S) &&
+                  tar -czvf ./bkup.$timestr.tar.gz ./backupFiles &&
+                  ./ossutil64 cp ./bkup.$timestr.tar.gz oss://ppwi-db-backup/{{ .Values.appInitial }}-{{ .Values.stage }}/bkup.$timestr.tar.gz -c ./.ossutilconfig -e oss-cn-hongkong.aliyuncs.com
+
+# ./ossutil64 ls -c ./.ossutilconfig
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+  name: "{{ .Values.appInitial }}-{{ .Values.stage }}-cj-oss-secret"
+data:
+  .ossutilconfig: W0NyZWRlbnRpYWxzXQpsYW5ndWFnasdfTgphY2Nlc3NLZXlTZWNyZXQ9S3pKMEVlRGdwR3lSY3p4aG9lUDRSc0tNdjQ4b1NCCmVuZHBvaW50PW9zcy1jbi1iZWlqaW5nLmFsaXl1bmNzLmNvbQphY2Nlc3NLZXlJRD1MVEFJNXRKMU45Zk1lOGpuVXJXM0I21234

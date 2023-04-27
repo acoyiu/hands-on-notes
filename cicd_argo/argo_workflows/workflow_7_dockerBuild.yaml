@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: sidecar-dind-
+spec:
+  entrypoint: dind-sidecar
+  templates:
+    - name: dind-sidecar
+
+      sidecars:
+        - name: dind
+          image: docker:23.0.0-dind # Docker already provides an image for running a Docker daemon
+          # image: docker:dind # (Latest)
+          command: [dockerd-entrypoint.sh]
+          env: [{ name: DOCKER_TLS_CERTDIR, value: "" }]
+          securityContext:
+            privileged: true # the Docker daemon can only run in a privileged container
+          mirrorVolumeMounts: true # mirrorVolumeMounts will mount the same volumes specified in the main container to the sidecar
+
+      container:
+        # the docker daemon can be access on the standard port on localhost
+        env: [{ name: DOCKER_HOST, value: 127.0.0.1 }]
+        image: docker:19.03.13
+        command: [sh, -c]
+        args: [
+            "\
+            until docker ps; \
+            do sleep 3; done; \
+            docker run --rm debian:latest cat /etc/os-release\
+            ",
+          ]

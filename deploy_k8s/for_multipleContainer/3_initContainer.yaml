@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sidecar-init-container
+spec:
+  volumes:
+    - name: vol-files
+      emptyDir: {}
+
+  initContainers:
+    - name: init-con
+      image: busybox:1.31.0
+      command:
+        ["sh", "-c", 'echo "check this out!" > /tmp/web-content/index.html']
+      volumeMounts:
+        - name: vol-files
+          mountPath: /tmp/web-content
+
+  containers:
+    - name: con-nginx
+      resources: {}
+      image: nginx:1.7.9
+      ports:
+        - containerPort: 80
+      volumeMounts:
+        - name: vol-files
+          mountPath: /usr/share/nginx/html
+#
+#
+# kubectl apply -f ./3_initContainer.yaml
+# kubectl port-forward sidecar-init-container 20080:80
+# curl localhost:20080

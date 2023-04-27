@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+
+
+metadata:
+  name: deploy-{{ .Chart.Name }}
+  annotations:
+    checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    {{- with .Values.deployAnno }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+
+spec:
+  replicas: {{ .Values.app.replicaCount }}
+
+  selector:
+    matchLabels:
+      {{- include "selectorLabels" . | nindent 6 }}
+
+  template:
+
+    metadata:
+      name: pod-{{ .Chart.Name }}
+      annotations:
+        timestamp: {{ now | quote }}
+      labels:
+        {{- include "selectorLabels" . | nindent 8 }}
+
+    spec:
+      volumes:
+        - name: config-volume
+          configMap:
+            name: cm-of-{{ .Chart.Name }}
+            
+      restartPolicy: Always
+
+      containers:
+        {{- range .Values.extraContainers }}
+        - {{- with . }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        {{- end }}
+
+        # main container
+        - resources:
+            limits: 
+              cpu: "250m"
+              memory: "250Mi"
+          image: {{ .Values.app.image }}
+          imagePullPolicy: Always
+          name: container-{{ .Chart.Name }}
+
+          ports:
+            - containerPort: {{ .Values.app.podPort }}
+
+          volumeMounts:
+            - name: config-volume
+              mountPath: /usr/share/nginx/html

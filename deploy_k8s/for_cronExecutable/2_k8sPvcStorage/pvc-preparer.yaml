@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: generic-app-pvc
+  finalizers:
+    - kubernetes.io/pvc-protection
+spec:
+  storageClassName: microk8s-hostpath
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: generic-app-pvc-reader
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                  - devenv-desktop
+  volumes:
+    - name: pvc-volume
+      persistentVolumeClaim:
+        claimName: generic-app-pvc
+  containers:
+    - name: ubuntu
+      image: ubuntu
+      command: [sh, -c, "tail -f /dev/null"]
+      volumeMounts:
+        - name: pvc-volume
+          mountPath: /storage

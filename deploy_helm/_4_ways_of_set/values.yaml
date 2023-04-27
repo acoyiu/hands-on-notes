@@ -1,0 +1,3 @@
+app:
+  replicaCount: 20
+  policy: IfNotPresent

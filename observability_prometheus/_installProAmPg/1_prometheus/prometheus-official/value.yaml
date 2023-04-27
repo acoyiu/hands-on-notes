@@ -1,0 +1,13 @@
+server:
+  persistentVolume:
+    enabled: true
+    accessModes:
+      - ReadWriteMany
+    size: 20Gi
+    storageClass: alicloud-nas-storeage-prometheus
+
+alertmanager:
+  enabled: false
+
+prometheus-pushgateway:
+  enabled: false

@@ -1,0 +1,14 @@
+bases:
+  - ../../base
+
+nameSuffix: -dev
+
+commonLabels:
+  env: development
+
+configMapGenerator:
+  - name: cm-root-html
+    literals:
+      - index.html=<p>this is cm for development</p>
+
+# kubectl run temp --image=nginx:alpine --restart=Never --rm -i --command -- curl aco-nginx-svc-dev:8080

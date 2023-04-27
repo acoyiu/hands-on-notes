@@ -1,0 +1,64 @@
+#!/bin/bash
+
+Registry=$1
+k8sSecret=$2
+tagName=$3
+noCache=$4
+imagePullPolicy=$5
+
+if [[ -z "$Registry" ]]; then
+    echo -e "${RED}Registry is empty"
+    exit 2
+    elif [[ -z "$k8sSecret" ]]; then
+    echo -e "${RED}k8sSecret name is empty"
+    exit 2
+fi
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+month=$(date +%B)
+day=$(date +%d)
+
+usingTagName="d-${month}-${day}"
+if [[ -n $tagName ]]; then
+    usingTagName=$tagName
+fi
+
+# loop all directories exclude certain name
+for d in *; do
+    
+    # ignore all startswith "_" and readme
+    if [[ $d =~ ^_ ]] || [[ $d == 'readme.md' ]]; then
+        
+        echo "--"
+        
+        elif [[ -n "$d" ]]; then
+        
+        if [[ ! -e "./${d}/Dockerfile" ]]; then
+            printf "${YELLOW}DockerFile is Missing in './${d}/Dockerfile', therefore Skipped in image build process.${NC}\n"
+        else
+            printf "${BLUE}Processing ${d} image building...${NC}\n"
+            
+            # build image and push to remote repositry
+            source ./_runMode/_imgBuildPush.sh "./${d}" $Registry $d $usingTagName $noCache
+            
+            printf "${GREEN}${d} image built and  pushed...${NC}\n"
+        fi
+        
+        if [[ ! -e "./${d}/_helm/Chart.yaml" ]]; then
+            printf "${YELLOW}Helm Chart is Missing in './${d}/_helm', therefore Skipped in helm install process.${NC}\n"
+        else
+            printf "${BLUE}Processing ${d} K8s(Helm) install...${NC}\n"
+            
+            # loop deploy heml charts
+            source ./_runMode/_helmUpgrade.sh "./${d}" $d $k8sSecret $Registry "d-${month}-${day}" $imagePullPolicy
+            
+            printf "${GREEN}${d} K8s(Helm) installed${NC}\n"
+        fi
+        
+    fi
+done

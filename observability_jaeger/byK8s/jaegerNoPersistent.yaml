@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger-deployment
+  namespace: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      usage: jaeger
+  template:
+    metadata:
+      labels:
+        usage: jaeger
+    spec:
+      restartPolicy: Always
+      containers:
+        - resources: {}
+          image: jaegertracing/all-in-one:1.35
+          imagePullPolicy: IfNotPresent
+          name: jaeger-container
+          env:
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+          ports:
+            - containerPort: 16686
+              protocol: TCP
+              name: dashboard
+            - containerPort: 14268
+              protocol: TCP
+              name: trace
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-service
+  namespace: jaeger
+spec:
+  type: ClusterIP
+  selector:
+    usage: jaeger
+  ports:
+    - port: 16686
+      targetPort: 16686
+      protocol: TCP
+      name: dashboard
+    - port: 14268
+      targetPort: 14268
+      protocol: TCP
+      name: trace
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jaeger-ingress
+  namespace: jaeger
+spec:
+  ingressClassName: public # <- Need pay attention on this
+  rules:
+    - host: jae-jaeger-collector.jaeger
+      http:
+        paths:
+          - backend:
+              service:
+                name: jaeger-service
+                port:
+                  number: 14268
+            path: /
+            pathType: Prefix
+    - host: jaeger.dev.ppwi
+      http:
+        paths:
+          - backend:
+              service:
+                name: jaeger-service
+                port:
+                  number: 16686
+            path: /
+            pathType: Prefix
+# kubectl -n jaeger port-forward svc/jaeger-service 14268:14268 16686:16686 --address=0.0.0.0

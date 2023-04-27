@@ -1,0 +1,72 @@
+version: "3"
+
+services:
+  rabbitmq:
+    container_name: mq-basic-rabbitmq
+    user: root
+    image: rabbitmq:3.9.16-management
+    ports:
+      - 5672:5672
+      - 15672:15672
+
+  exp-1:
+    depends_on:
+      - rabbitmq
+    image: golang:alpine3.15
+    restart: always
+    container_name: mq-basic-exp-1
+    command: sh -c "cd /app && go run main.go"
+    volumes:
+      - $PWD/1_workout:/app
+
+  exp-2:
+    depends_on:
+      - rabbitmq
+    image: golang:alpine3.15
+    restart: always
+    container_name: mq-basic-exp-2
+    command: sh -c "cd /app && go run main.go"
+    volumes:
+      - $PWD/2_connectAndFanout:/app
+
+  exp-3:
+    depends_on:
+      - rabbitmq
+    image: golang:alpine3.15
+    restart: always
+    container_name: mq-basic-exp-3
+    command: sh -c "cd /app && go run main.go"
+    volumes:
+      - $PWD/3_directExchange:/app
+
+  exp-4:
+    depends_on:
+      - rabbitmq
+    image: golang:alpine3.15
+    restart: always
+    container_name: mq-basic-exp-4
+    command: sh -c "cd /app && go run main.go"
+    volumes:
+      - $PWD/4_topicExchange:/app
+
+  exp-5:
+    depends_on:
+      - rabbitmq
+    image: golang:alpine3.15
+    restart: always
+    container_name: mq-basic-exp-5
+    command: sh -c "cd /app && go run main.go"
+    volumes:
+      - $PWD/5_publisher:/app
+    ports:
+      - 4000:4000
+
+  exp-6:
+    depends_on:
+      - rabbitmq
+    image: golang:alpine3.15
+    restart: always
+    container_name: mq-basic-exp-6
+    command: sh -c "cd /app && go run main.go"
+    volumes:
+      - $PWD/6_configExchangeQueue:/app

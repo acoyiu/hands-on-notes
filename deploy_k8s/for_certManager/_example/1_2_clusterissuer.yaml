@@ -1,0 +1,25 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # 您必須將此電子郵件地址替換為您自己的, Let's Encrypt 將使用它與您聯繫有關過期的問題證書，以及與您的帳戶相關的問題。
+    email: aco@ppwi.world
+
+    # Staging or Production
+    server: https://acme-staging-v02.api.letsencrypt.org/directory # <- this for stainging (testing)
+    # server: https://acme-v02.api.letsencrypt.org/directory        # <- this for production
+
+    # 為 true 時，不會每次都生成俾 ACME 的身份 key, 第一次因爲沒有生成過的 key，所以多數都係 false
+    disableAccountKeyGeneration: false
+
+    # 生成俾 ACME 的身份 key 的名字, 用於被 acme server 記錄你是誰的 用途
+    privateKeySecretRef:
+      name: trial-issuer-account-key
+
+    # 添加單個挑戰求解器，HTTP01 使用 nginx（ingress）
+    solvers:
+      - http01:
+          ingress:
+            class: nginx # <-- Remeber to update the ingress class name

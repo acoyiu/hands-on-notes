@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpserver
+  namespace: httpserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpserver
+  template:
+    metadata:
+      labels:
+        app: httpserver
+    spec:
+      containers:
+        - resources: {}
+          name: file-runner-container
+          image: golang:alpine
+          ports:
+            - containerPort: 8080
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - >-
+              mkdir /unzip && tar -xf /appfiles/app.tar -C /unzip && cd /unzip/app &&
+              go mod tidy &&
+              go run main.go
+          volumeMounts:
+            - mountPath: /appfiles
+              name: files
+          env:
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: MY_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      volumes:
+        - name: files
+          configMap:
+            name: appfiles
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpserver
+  namespace: httpserver
+  labels:
+    app: httpserver
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: httpserver

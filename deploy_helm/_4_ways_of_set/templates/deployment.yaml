@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.app.mdname }}
+  annotations:
+    anno: {{ .Values.anno }}
+spec:
+  replicas: {{ .Values.app.replicaCount }}
+  selector:
+    matchLabels:
+      app: nginx-1
+  template:
+    metadata:
+      labels:
+        app: nginx-1
+    spec:
+      restartPolicy: {{ .Values.app.policy | default "Always" }}
+      containers:
+        - resources: {}
+          image: {{ .Values.app2.image }}
+          name: the-container
+          ports:
+            - containerPort: {{ .Values.port }}
+          args:
+            - |
+              {{ .Values.script | nindent 14 }}

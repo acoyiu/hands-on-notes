@@ -1,0 +1,13 @@
+version: "3.0"
+
+services:
+  pusher:
+    build: . 
+    restart: unless-stopped
+    container_name: pm-gw-python-pusher
+    volumes:
+      # Debug use
+      - ./app.py:/app/app.py 
+      - ./ep.yaml:/app/ep.yaml
+    ports:
+      - "4000:4000"

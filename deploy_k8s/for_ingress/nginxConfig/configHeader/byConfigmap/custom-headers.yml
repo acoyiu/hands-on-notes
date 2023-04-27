@@ -1,0 +1,9 @@
+apiVersion: v1
+data:
+  X-Custom-Request-Start: t=${msec}
+  X-Custom-Using-Nginx-Controller: "true"
+  enable-real-ip: "true" # this line is not custom, but default config for nginx
+kind: ConfigMap
+metadata:
+  name: custom-headers
+  namespace: ingress-nginx

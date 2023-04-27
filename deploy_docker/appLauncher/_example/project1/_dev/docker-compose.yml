@@ -1,0 +1,23 @@
+version: "3"
+
+services:
+  ms_smsservice:
+    networks:
+      - app-launcher-network
+    image: nodebase # a custom image with nodemon installed
+    container_name: ms_smsservice
+    volumes:
+      - $PWD:/app
+    command: sh -c "
+      cd /app
+      && npm i
+      && export NODE_ENV=development
+      && nodemon --inspect=0.0.0.0:9229 index.js"
+    ports:
+      - "50051:443" # grpc server
+      - "49229:9229" # nodemon
+
+networks:
+  app-launcher-network:
+    external:
+      name: app-launcher-network

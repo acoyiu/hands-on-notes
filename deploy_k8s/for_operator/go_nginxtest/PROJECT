@@ -1,0 +1,16 @@
+domain: nginx.com
+layout:
+- go.kubebuilder.io/v3
+projectName: nginxtest
+repo: nginx.com/nginx-deployer
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: nginx.com
+  group: ng
+  kind: Nginxset
+  path: nginx.com/nginx-deployer/api/v2beta2
+  version: v2beta2
+version: "3"

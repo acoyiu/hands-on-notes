@@ -1,0 +1,11 @@
+version: "3"
+
+services:
+  nodeEnv:
+    image: node:alpine3.15
+    container_name: app-project-1
+    volumes:
+      - ./:/app
+    command: sh -c "cd /app && npm i && node index.js"
+    ports:
+      - "3000:3000"

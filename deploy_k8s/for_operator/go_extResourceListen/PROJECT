@@ -1,0 +1,16 @@
+domain: test.com
+layout:
+- go.kubebuilder.io/v3
+projectName: cmdeploy
+repo: test.com/cm-deployer
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: test.com
+  group: aco
+  kind: Webset
+  path: test.com/cm-deployer/api/v1alpha1
+  version: v1alpha1
+version: "3"

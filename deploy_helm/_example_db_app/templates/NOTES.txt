@@ -1,0 +1,52 @@
+=======================================================================================================
+
+Mongo Initialtion:
+
+# enter sts pod and init replica
+kubectl -n {{ .Values.appInitial }}-{{ .Values.stage }} exec -it {{ .Values.appInitial }}-mongo-sts-0 -- bash
+
+# enter mongo shell
+mongo
+
+# init replica
+rs.initiate({
+    _id: "MainRepSet",
+    version: 1,
+    members: [
+        { _id: 0, host: "{{ .Values.appInitial }}-mongo-sts-0.{{ .Values.appInitial }}-mongo-svc.{{ .Values.appInitial }}-{{ .Values.stage }}.svc.cluster.local" },
+        { _id: 1, host: "{{ .Values.appInitial }}-mongo-sts-1.{{ .Values.appInitial }}-mongo-svc.{{ .Values.appInitial }}-{{ .Values.stage }}.svc.cluster.local" },
+        { _id: 2, host: "{{ .Values.appInitial }}-mongo-sts-2.{{ .Values.appInitial }}-mongo-svc.{{ .Values.appInitial }}-{{ .Values.stage }}.svc.cluster.local" }
+    ]
+});
+
+# The MongoUrl:
+mongodb://{{ .Values.appInitial }}-mongo-sts-0.{{ .Values.appInitial }}-mongo-svc:27017,{{ .Values.appInitial }}-mongo-sts-1.{{ .Values.appInitial }}-mongo-svc:27017,{{ .Values.appInitial }}-mongo-sts-2.{{ .Values.appInitial }}-mongo-svc:27017/
+
+# Set Always Primary (only in dev and for exposing as node port)
+cfg = rs.conf()
+cfg.members[0].priority = 1
+cfg.members[1].priority = 0.5
+cfg.members[2].priority = 0.1
+rs.reconfig(cfg)
+
+# Create Cron Job
+kubectl -n {{ .Values.appInitial }}-{{ .Values.stage }} create job temp --from=cj/{{ .Values.appInitial }}-{{ .Values.stage }}-cj-backup-mongo-to-oss-drive
+kubectl logs -f pods/temp-....
+
+=======================================================================================================
+
+Elastic:
+
+# enter sts pod and init replica
+kubectl -n {{ .Values.appInitial }}-{{ .Values.stage }} exec -it {{ .Values.appInitial }}-elastic-sts-0 -- bash
+
+# install plugin
+elasticsearch-plugin install {{ .Values.app.elastic.plugZip.analysisIk }}
+elasticsearch-plugin install {{ .Values.app.elastic.plugZip.analysisPinyin }}
+elasticsearch-plugin install {{ .Values.app.elastic.plugZip.analysisStconvert }}
+
+# restart elastic for plugin effective
+exit
+kubectl -n {{ .Values.appInitial }}-{{ .Values.stage }} delete pod/{{ .Values.appInitial }}-elastic-sts-0
+
+=======================================================================================================

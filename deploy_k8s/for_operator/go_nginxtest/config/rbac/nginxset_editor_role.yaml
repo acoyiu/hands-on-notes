@@ -1,0 +1,24 @@
+# permissions for end users to edit nginxsets.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nginxset-editor-role
+rules:
+- apiGroups:
+  - ng.nginx.com
+  resources:
+  - nginxsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ng.nginx.com
+  resources:
+  - nginxsets/status
+  verbs:
+  - get

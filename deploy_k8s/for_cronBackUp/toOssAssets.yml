@@ -1,0 +1,64 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cj-backup-asset-to-oss
+spec:
+  schedule: "0 2 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Replace
+  jobTemplate:
+    metadata:
+      name: job-backup-asset-to-oss
+    spec:
+      parallelism: 1
+      completions: 1
+      backoffLimit: 3
+      activeDeadlineSeconds: 600 # 180
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          name: pod-backup-asset-to-oss
+        spec:
+          restartPolicy: OnFailure
+          volumes:
+            - name: pvc-volume
+              persistentVolumeClaim:
+                claimName: assets-pvc
+            - name: oss-secret
+              secret:
+                secretName: cj-oss-secret
+                defaultMode: 0777
+          containers:
+            - image: curlimages/curl
+              name: pvc-backup-er
+              resources: {}
+              volumeMounts:
+                - mountPath: /storage
+                  name: pvc-volume
+                - mountPath: /oss
+                  name: oss-secret
+              command:
+                - sh
+              args:
+                - -c
+                - |
+                  cd ~ && 
+                  wget https://gosspublic.alicdn.com/ossutil/1.7.14/ossutil64 &&
+                  chmod 755 ./ossutil64 &&
+                  cp /oss/.ossutilconfig ./.ossutilconfig &&
+                  export timestr=$(date +%Y_%m_%d_%H_%M_%S) &&
+                  cd /storage &&
+                  tar -czvf ~/editor.asset.$timestr.tar.gz ./* &&
+                  cd ~ &&
+                  ./ossutil64 cp ./editor.asset.$timestr.tar.gz oss://ppwi-db-backup/article-pro/editor.asset.$timestr.tar.gz -c ./.ossutilconfig -e oss-cn-hongkong.aliyuncs.com
+
+# ./ossutil64 ls -c ./.ossutilconfig
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cj-oss-secret
+data:
+  .ossutilconfig: W0NyZWRlbnRpYWxzXQpsYW5ndWFnasdfTgphY2Nlc3NLZXlTZWNyZXQ9S3pKMEVlRGdwR3lSY3p4aG9lUDRSc0tNdjQ4b1NCCmVuZHBvaW50PW9zcy1jbi1iZWlqaW5nLmFsaXl1bmNzLmNvbQphY2Nlc3NLZXlJRD1MVEFJNXRKMU45Zk1lOGpuVXJXM0I2U3IK

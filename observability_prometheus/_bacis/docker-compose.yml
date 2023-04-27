@@ -1,0 +1,36 @@
+version: "3.0"
+
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: prom-prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus:/etc/prometheus
+    command: --config.file=/etc/prometheus/prometheus.yml
+
+  pushgateway:
+    image: prom/pushgateway
+    container_name: prom-pushgateway
+    ports:
+      - 9091:9091
+
+  alertmanager:
+    image: prom/alertmanager
+    container_name: prom-alertmanager
+    ports:
+      - 9093:9093
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+
+  grafana:
+    image: grafana/grafana
+    container_name: prom-grafana
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    env_file:
+      - ./grafana/config.monitoring

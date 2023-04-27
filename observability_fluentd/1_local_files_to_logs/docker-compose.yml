@@ -1,0 +1,12 @@
+version: "3"
+services:
+  fluentd:
+    container_name: flu-1-local-file
+    user: root
+    image: fluentd
+    volumes:
+      - ./input:/fluentd/log/files  # for reading logs from a file
+      - ./output:/output            # for Fluentd will to save log file as example
+      - ./config:/fluentd/etc
+    logging:
+      driver: "local"

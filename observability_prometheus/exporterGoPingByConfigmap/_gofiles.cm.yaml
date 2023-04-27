@@ -1,0 +1,34 @@
+apiVersion: v1
+data:
+  go.mod: "module gorunner\n\ngo 1.19\n\nrequire (\n\tgithub.com/gin-gonic/gin v1.7.7\n\tgithub.com/prometheus/client_golang
+    v1.12.1\n)\n\nrequire (\n\tgithub.com/beorn7/perks v1.0.1 // indirect\n\tgithub.com/cespare/xxhash/v2
+    v2.1.2 // indirect\n\tgithub.com/gin-contrib/sse v0.1.0 // indirect\n\tgithub.com/go-playground/locales
+    v0.13.0 // indirect\n\tgithub.com/go-playground/universal-translator v0.17.0 //
+    indirect\n\tgithub.com/go-playground/validator/v10 v10.4.1 // indirect\n\tgithub.com/golang/protobuf
+    v1.5.2 // indirect\n\tgithub.com/json-iterator/go v1.1.12 // indirect\n\tgithub.com/leodido/go-urn
+    v1.2.0 // indirect\n\tgithub.com/mattn/go-isatty v0.0.12 // indirect\n\tgithub.com/matttproud/golang_protobuf_extensions
+    v1.0.1 // indirect\n\tgithub.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+    // indirect\n\tgithub.com/modern-go/reflect2 v1.0.2 // indirect\n\tgithub.com/prometheus/client_model
+    v0.2.0 // indirect\n\tgithub.com/prometheus/common v0.32.1 // indirect\n\tgithub.com/prometheus/procfs
+    v0.7.3 // indirect\n\tgithub.com/samber/lo v1.27.0 // indirect\n\tgithub.com/ugorji/go/codec
+    v1.1.7 // indirect\n\tgolang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 //
+    indirect\n\tgolang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect\n\tgolang.org/x/sys
+    v0.0.0-20220114195835-da31bd327af9 // indirect\n\tgoogle.golang.org/protobuf v1.26.0
+    // indirect\n\tgopkg.in/yaml.v2 v2.4.0 // indirect\n)\n"
+  main.go: "package main\n\nimport (\n\t\"gorunner/pinger\"\n\n\t\"github.com/gin-gonic/gin\"\n\t\"github.com/prometheus/client_golang/prometheus/promhttp\"\n)\n\nfunc
+    main() {\n\tr := gin.Default()\n\tr.GET(\n\t\t\"/metrics\",\n\t\tfunc(c *gin.Context)
+    {\n\t\t\tpinger.StartPing()\n\t\t},\n\t\tgin.WrapH(promhttp.Handler()),\n\t)\n\tr.Run()\n}\n"
+  pinger.go: "package pinger\n\nimport (\n\t\"net/http\"\n\t\"sync\"\n\t\"time\"\n\n\t\"github.com/prometheus/client_golang/prometheus\"\n\t\"github.com/samber/lo\"\n)\n\nvar
+    (\n\tendpoints = []string{\n\t\t\"http://123.57.136.251\",\n\t\t\"https://api.funacademycn.com\",\n\t\t\"https://highlights.milkcargo.cn\",\n\t}\n\twg
+    \           = sync.WaitGroup{}\n\tPingTimeToSvc = prometheus.NewGaugeVec(prometheus.GaugeOpts{\n\t\tName:
+    \"ping_time_to_service\",\n\t\tHelp: \"Total time used to ping target service\",\n\t},
+    []string{\"endpoint_url\"})\n)\n\nfunc init() {\n\tprometheus.Register(PingTimeToSvc)\n}\n\nfunc
+    StartPing() {\n\n\twg.Add(len(endpoints))\n\n\tlo.ForEach(endpoints, func(ep string,
+    _ int) {\n\n\t\tgo func() {\n\t\t\tclient := http.Client{\n\t\t\t\tTimeout: 5
+    * time.Second,\n\t\t\t}\n\n\t\t\tsTime := time.Now().UnixMilli()\n\n\t\t\t_, err
+    := client.Get(ep)\n\n\t\t\tif err != nil {\n\t\t\t\tPingTimeToSvc.\n\t\t\t\t\tWith(prometheus.Labels{\"endpoint_url\":
+    ep}).\n\t\t\t\t\tSet(5000)\n\t\t\t} else {\n\t\t\t\teTime := time.Now().UnixMilli()\n\n\t\t\t\tPingTimeToSvc.\n\t\t\t\t\tWith(prometheus.Labels{\"endpoint_url\":
+    ep}).\n\t\t\t\t\tSet(float64(eTime - sTime))\n\t\t\t}\n\n\t\t\twg.Done()\n\t\t}()\n\t})\n\n\twg.Wait()\n}\n"
+kind: ConfigMap
+metadata:
+  name: gofiles

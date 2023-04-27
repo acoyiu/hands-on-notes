@@ -1,0 +1,13 @@
+version: "3"
+services:
+  fluentd:
+    container_name: flu-2-http-request
+    user: root
+    image: fluentd
+    volumes:
+      - ./output:/output
+      - ./config:/fluentd/etc
+    logging:
+      driver: "local"
+    ports:
+      - 9880:9880

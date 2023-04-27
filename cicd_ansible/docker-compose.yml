@@ -1,0 +1,7 @@
+services:
+  openssh:
+    container_name: container-ansible
+    build: .
+    network_mode: "host"
+    volumes:
+      - "$PWD:/ansible"

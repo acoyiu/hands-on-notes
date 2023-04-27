@@ -1,0 +1,26 @@
+# stage 1
+
+FROM node:12-alpine3.15 as build_cache_1
+
+WORKDIR /app
+COPY package.json index.js ./
+RUN npm install
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+# stage 2
+
+FROM node:12-alpine3.15
+
+COPY --from=build_cache_1 /app /
+EXPOSE 5050
+CMD ["index.js"]
+
+
+# command for build =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# docker build --tag ingress-tester --no-cache .
+# docker run -dit --name itester -p 5050:5050 ingress-tester
+
+# add tag to image and update repository =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+# docker tag 59f3e3615488 sampleimage/myimage
+# docker push sampleimage/myimage

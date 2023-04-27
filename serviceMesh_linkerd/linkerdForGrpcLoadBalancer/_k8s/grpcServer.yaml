@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: deployment-aco-server
+  labels:
+    app: aco-server
+
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aco-server
+
+  template:
+    metadata:
+      # annotations:
+      #   linkerd.io/inject: enabled
+      labels:
+        app: aco-server
+    spec:
+      restartPolicy: Always
+      containers:
+        - resources:
+            limits:
+              cpu: 300m
+              memory: 100Mi
+          image: aco-grpc-server
+          imagePullPolicy: IfNotPresent
+          name: pod-aco-server
+          ports:
+            - containerPort: 8080
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-aco-server
+spec:
+  type: ClusterIP
+  selector:
+    app: aco-server
+  ports:
+    - port: 8080
+      targetPort: 8080

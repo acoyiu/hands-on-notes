@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - ng.nginx.com
+  resources:
+  - nginxsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ng.nginx.com
+  resources:
+  - nginxsets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ng.nginx.com
+  resources:
+  - nginxsets/status
+  verbs:
+  - get
+  - patch
+  - update

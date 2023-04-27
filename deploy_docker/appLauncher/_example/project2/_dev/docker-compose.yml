@@ -1,0 +1,22 @@
+version: "3"
+
+services:
+  go-env:
+    networks:
+      - app-launcher-network
+    image: gobase # a custom image with dlv and go dependencies installed
+    container_name: app-project-2
+    volumes:
+      - $PWD:/app
+    command: sh -c "
+      cd /app
+      && go build -gcflags=\"all=-N -l\" -o ./main
+      && /go/bin/dlv --continue --listen=:40000 --headless=true --api-version=2 --accept-multiclient exec ./main"
+    ports:
+      - "3001:3000"
+      - "40000:40000"
+
+networks:
+  app-launcher-network:
+    external:
+      name: app-launcher-network

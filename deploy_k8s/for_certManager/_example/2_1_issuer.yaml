@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-prod-babymo
+  namespace: app-bbm
+spec:
+  acme:
+    email: aco@ppwi.world
+    server: https://acme-v02.api.letsencrypt.org/directory
+    disableAccountKeyGeneration: false
+    privateKeySecretRef:
+      name: issuer-babymo-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx

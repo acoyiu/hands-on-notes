@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# loop all directories exclude certain name
+for d in *; do
+    
+    # ignore all startswith "_" and readme
+    if [[ $d =~ ^_ ]] || [[ $d == 'readme.md' ]]; then
+        
+        echo "--"
+        
+        elif [[ -n "$d" ]]; then
+        
+        # check have same named install in helm
+        if ! helm list | grep -q $d; then
+            echo "${d} not exist in Helm"
+        else
+            echo "${d} existed in Helm, now uninstalling it..."
+            
+            helm uninstall $d
+            
+            echo "${d} install in helm is uninstalled"
+        fi
+        
+        echo "======"
+        
+    fi
+done

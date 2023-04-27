@@ -1,0 +1,195 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: "{{ .Values.appInitial }}-elastic-svc"
+      namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+      labels:
+        app: "{{ .Values.appInitial }}-elastic"
+        db-usage: "true"
+    spec:
+      selector:
+        app: "{{ .Values.appInitial }}-elastic"
+        db-usage: "true"
+      clusterIP: None
+      ports:
+        - port: 9200
+          targetPort: 9200
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  - apiVersion: apps/v1
+    kind: StatefulSet
+    metadata:
+      name: "{{ .Values.appInitial }}-elastic-sts"
+      namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+      labels:
+        app: "{{ .Values.appInitial }}-elastic"
+        db-usage: "true"
+    spec:
+      selector:
+        matchLabels:
+          app: "{{ .Values.appInitial }}-elastic"
+          db-usage: "true"
+      serviceName: elasticsearch
+      replicas: 1
+      template:
+        metadata:
+          labels:
+            app: "{{ .Values.appInitial }}-elastic"
+            db-usage: "true"
+        spec:
+          terminationGracePeriodSeconds: 10
+          initContainers:
+            - name: elastic-init-sysctl
+              image: busybox
+              securityContext:
+                privileged: true # <----- NOT A Secure Approach !!!
+                runAsUser: 0
+              command: ["sh", "-c", "sysctl -w vm.max_map_count=262144"]
+          containers:
+            - resources: {}
+              image: elasticsearch:7.16.3
+              imagePullPolicy: IfNotPresent
+              name: elastic-elastic
+              securityContext:
+                privileged: true
+              # lifecycle:
+              #   postStart:
+              #     exec:
+              #       command:
+              #       - "/bin/sh"
+              #       - "-c"
+              #       - |
+              #         if [ elasticsearch-plugin install https://github.com/medcl/elasticsearch-analysis-ik/releases/download/v7.16.3/elasticsearch-analysis-ik-7.16.3.zip ]; then
+              #           echo "elasticsearch-analysis-ik installed"
+              #         else
+              #           echo "elasticsearch-analysis-ik already installed"
+              #         fi
+              #         if [ elasticsearch-plugin install https://github.com/medcl/elasticsearch-analysis-pinyin/releases/download/v7.16.3/elasticsearch-analysis-pinyin-7.16.3.zip ]; then
+              #           echo "elasticsearch-analysis-pinyin installed"
+              #         else
+              #           echo "elasticsearch-analysis-pinyin already installed"
+              #         fi
+              #         if [ elasticsearch-plugin install https://github.com/medcl/elasticsearch-analysis-stconvert/releases/download/v7.16.3/elasticsearch-analysis-stconvert-7.16.3.zip ]; then
+              #           echo "elasticsearch-analysis-stconvert installed"
+              #         else
+              #           echo "elasticsearch-analysis-stconvert already installed"
+              #         fi
+              ports:
+                - containerPort: 9200
+                  protocol: TCP
+                  name: elastic
+              env:
+                - name: node.name
+                  value: elasticsearch
+                - name: cluster.initial_master_nodes
+                  value: elasticsearch
+                - name: bootstrap.memory_lock
+                  value: "false"
+                - name: ES_JAVA_OPTS
+                  value: "-Xms512m -Xmx512m"
+              volumeMounts:
+                - name: elastic-persistent-storage-for-data
+                  mountPath: /usr/share/elasticsearch/data
+                - name: elastic-persistent-storage-for-plugin
+                  mountPath: /usr/share/elasticsearch/plugins
+                - name: elastic-persistent-storage-for-plugin-ik # <----- this only for chinese
+                  mountPath: /usr/share/elasticsearch/config/analysis-ik
+      volumeClaimTemplates:
+        - metadata:
+            name: elastic-persistent-storage-for-data
+            labels:
+              app: "{{ .Values.appInitial }}-elastic"
+              db-usage: "true"
+          spec:
+            accessModes: ["ReadWriteMany"]
+            storageClassName: "{{ .Values.app.elastic.data.storageClass }}" # <-------------------------------------------- update storage class name
+            resources:
+              requests:
+                storage: "{{ .Values.app.elastic.data.storage }}"
+        - metadata:
+            name: elastic-persistent-storage-for-plugin
+            labels:
+              app: "{{ .Values.appInitial }}-elastic"
+              db-usage: "true"
+          spec:
+            accessModes: ["ReadWriteMany"]
+            storageClassName: "{{ .Values.app.elastic.plugin.storageClass }}" # <-------------------------------------------- update storage class name
+            resources:
+              requests:
+                storage: "{{ .Values.app.elastic.plugin.storage }}"
+        - metadata:
+            name: elastic-persistent-storage-for-plugin-ik # <------------------------ this only for chinese
+            labels:
+              app: "{{ .Values.appInitial }}-elastic"
+              db-usage: "true"
+          spec:
+            accessModes: ["ReadWriteMany"]
+            storageClassName: "{{ .Values.app.elastic.pluginIk.storageClass }}" # <-------------------------------------------- update storage class name
+            resources:
+              requests:
+                storage: "{{ .Values.app.elastic.pluginIk.storage }}"
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: "{{ .Values.appInitial }}-kibana-deploy"
+      namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+      labels:
+        app: "{{ .Values.appInitial }}-kibana"
+        db-usage: "true"
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: "{{ .Values.appInitial }}-kibana"
+          db-usage: "true"
+      template:
+        metadata:
+          labels:
+            app: "{{ .Values.appInitial }}-kibana"
+            db-usage: "true"
+        spec:
+          containers:
+            - resources: {}
+              image: kibana:7.16.3
+              imagePullPolicy: IfNotPresent
+              name: elastic-kibana
+              ports:
+                - containerPort: 5601
+                  protocol: TCP
+                  name: kibana
+              env:
+                - name: ELASTICSEARCH_URL
+                  value: http://{{ .Values.appInitial }}-elastic-svc:9200 
+                - name: ELASTICSEARCH_HOSTS
+                  value: http://{{ .Values.appInitial }}-elastic-svc:9200 
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      name: "{{ .Values.appInitial }}-kibana-svc"
+      namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+      labels:
+        app: "{{ .Values.appInitial }}-kibana"
+        db-usage: "true"
+    spec:
+      type: ClusterIP
+      selector:
+        app: "{{ .Values.appInitial }}-kibana"
+        db-usage: "true"
+      ports:
+        - name: kibana
+          port: 5601
+          targetPort: 5601
+          protocol: TCP

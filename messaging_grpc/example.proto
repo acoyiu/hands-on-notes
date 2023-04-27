@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package docs;
+
+message Example {
+  string foo = 1;
+  bool bar = 2;
+  Example baz = 3;
+  repeated string names = 4; // Array of string
+  map<string, string> statuses = 5; // key-value object
+
+  // enum, proto3版本中，首成员必须为0，成员不应有相同的值
+  SmsProvider provider = 6;
+  enum SmsProvider {
+    peter = 0;
+    vonage = 1;
+  }
+}

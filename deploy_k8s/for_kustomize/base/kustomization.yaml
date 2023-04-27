@@ -1,0 +1,8 @@
+namePrefix: aco-
+
+commonLabels:
+  usage: aco-kustomize
+
+resources:
+  - _deployment.yaml
+  - _service.yaml

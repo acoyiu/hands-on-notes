@@ -1,0 +1,18 @@
+kind: pipeline
+type: kubernetes
+name: default
+
+# manual git clone is required if using k8s runner
+clone:
+  disable: true
+steps:
+  - name: clone
+    image: bitnami/git
+    commands:
+      - git clone $DRONE_REMOTE_URL .
+      - git checkout $DRONE_COMMIT
+
+  - name: test
+    image: ubuntu
+    commands:
+      - ls -al

@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-go-runner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      usage: go-run
+  template:
+    metadata:
+      name: go-runner
+      labels:
+        usage: go-run
+    spec:
+      containers:
+        - resources: {}
+          name: go-runner
+          image: golang:alpine
+          ports:
+            - containerPort: 8080
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - >-
+              cp -r /goer /gorun &&
+              cd /gorun &&
+              go mod tidy &&
+              go run main.go
+          volumeMounts:
+            - mountPath: /goer
+              name: files
+      volumes:
+        - name: files
+          configMap:
+            name: gofiles
+            # Need update below if directory structure changed
+            items:
+              - key: go.mod
+                path: go.mod
+              - key: main.go
+                path: main.go
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-go-runner
+spec:
+  type: ClusterIP
+  selector:
+    usage: go-run
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 8080

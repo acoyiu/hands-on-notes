@@ -1,0 +1,24 @@
+FROM node:alpine3.15
+
+WORKDIR /app
+
+COPY package.json .env ./
+COPY proto ./proto
+COPY asGateway ./asGateway
+
+RUN npm install
+
+EXPOSE 7070
+
+CMD ["./asGateway/gateway.js"]
+
+# #  for testing
+# ENTRYPOINT ["tail", "-f" ,"/dev/null"]
+
+# # docker build
+# docker build -t aco-grpc-gateway -f Dockerfile_gateway --no-cache .
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+# # run container
+# docker run -dit -p 7070:7070 --name=aco-g-gateway aco-grpc-gateway

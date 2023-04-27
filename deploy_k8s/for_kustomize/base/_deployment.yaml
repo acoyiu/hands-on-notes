@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deploy
+spec:
+  selector:
+    matchLabels:
+      run: nginx-pod
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: nginx-pod
+    spec:
+      volumes:
+        - name: volume-from-configmap
+          configMap:
+            name: cm-root-html
+      containers:
+        - name: nginx-container
+          image: nginx
+          resources: {}
+          volumeMounts:
+            - name: volume-from-configmap
+              mountPath: /usr/share/nginx/html

@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: deployment-aco-gateway
+  labels:
+    app: aco-gateway
+
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aco-gateway
+
+  template:
+    metadata:
+      # annotations:
+      #   linkerd.io/inject: enabled
+      #   config.linkerd.io/proxy-cpu-limit: "1"
+      #   config.linkerd.io/proxy-cpu-request: "0.2"
+      #   config.linkerd.io/proxy-memory-limit: 2Gi
+      #   config.linkerd.io/proxy-memory-request: 128Mi
+      labels:
+        app: aco-gateway
+    spec:
+      restartPolicy: Always
+
+      volumes:
+        - name: config-volume
+          configMap:
+            name: configmap-for-grpc-gateway
+
+      containers:
+        - resources:
+            limits:
+              cpu: 300m
+              memory: 100Mi
+          image: aco-grpc-gateway
+          imagePullPolicy: IfNotPresent
+          name: pod-aco-gateway
+          ports:
+            - containerPort: 7070
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/.env
+              subPath: envContent
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-aco-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app: aco-gateway
+  ports:
+    - port: 7070
+      targetPort: 7070

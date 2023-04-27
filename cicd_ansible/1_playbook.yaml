@@ -1,0 +1,34 @@
+---
+- name: "Test Action"
+  hosts: all
+
+  vars:
+    favcolor: blue
+
+  vars_files:
+    - ./0_external_vars.yaml
+
+  tasks:
+    - name: "remove directory"
+      shell: "rm -r /aaa"
+      ignore_errors: True
+
+    - name: Make aaa directory
+      file:
+        path: /aaa
+        state: directory
+
+    - name: "Go to the folder and execute command"
+      command: "chdir=/aaa mkdir asd"
+
+    - name: "make file if"
+      shell: "touch /aaa/index.js"
+      when: somevar == "somevalue"
+
+    - name: "ls directory ans save standard output as item to use later"
+      shell: "ls -al /var"
+      register: var_to_use_later
+
+    - shell: "echo {{ item }} >> /aaa/index.js"
+      with_items:
+        - "{{ var_to_use_later.stdout_lines }}"

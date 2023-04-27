@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cron-ping-to-prod
+spec:
+  schedule: "*/2 * * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      parallelism: 1
+      completions: 1
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values:
+                          - devenv-desktop
+          volumes:
+            - name: pvc-volume
+              persistentVolumeClaim:
+                claimName: generic-app-pvc
+          containers:
+            - command:
+                - sh
+                - -c
+                - "/storage/executables/ping_metrics_to_gateway http://pushgateway-service.pushgateway:9091 dev_pushgateway ping_production_link https://api.funacademycn.com https://highlights.milkcargo.cn"
+              image: nginx:alpine
+              name: executable-pvc-reader
+              resources: {}
+              volumeMounts:
+                - mountPath: /storage
+                  name: pvc-volume

@@ -1,0 +1,27 @@
+kind: HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+metadata:
+  name: httpserver-hpa
+  namespace: httpserver
+spec:
+  minReplicas: 1                   
+  maxReplicas: 10
+  
+  scaleTargetRef:
+    apiVersion: apps/v1        
+    kind: Deployment
+    name: httpserver
+
+  metrics:
+    - type: Pods                      # use a "Pods" metric, which takes the average of the given metric,
+      pods:                           # across all pods controlled by the autoscaling target
+        metric:
+          name: http_requests_rate    # use the metric that you used above: /pod/metrics
+        target:                       # target 500 milli-requests per second, which is 1 request every two seconds
+          type: Value                 # "Value" 或 "AverageValue"
+          averageValue: 500m
+
+    # - type: Object                  # 第二种可选的度量指标类型是对象 （Object）度量指标。 这些度量指标用于描述在相同名字空间中的别的对象，而非 Pod
+                                      # 少用 ！
+
+

@@ -1,0 +1,19 @@
+---
+kind: pipeline
+type: ssh
+name: pipeline-name
+
+server: # can be any device which can be ssh
+  host: 192.168.0.222
+  user: username
+  password:
+    from_secret: password
+
+steps:
+  - name: step-name
+    commands: # Need re-export, as it will set the user root in temp directory in /tmp
+      - whoami
+      - echo ~
+      - export PATH=$PATH:/home/$(whoami)/.bin
+      - export KUBECONFIG=/home/$(whoami)/.kube/config
+      - helm list

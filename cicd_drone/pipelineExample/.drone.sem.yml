@@ -1,0 +1,137 @@
+kind: pipeline
+type: kubernetes
+name: default
+
+trigger:
+  branch:
+    - develop
+  event:
+    - push
+
+clone:
+  disable: true
+
+services:
+  - name: docker
+    image: docker:dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+
+steps:
+  - name: clone-custom
+    image: bitnami/git
+    commands:
+      - git clone $DRONE_REMOTE_URL .
+      - git checkout $DRONE_COMMIT
+  - name: semantic-release
+    image: node
+    commands:
+      - |
+        cat >> release.config.js << EOF
+        module.exports = {
+            branches: [
+                "master",
+                "develop"
+            ],
+            plugins:
+                [
+                    "@semantic-release/commit-analyzer",
+                    "@semantic-release/release-notes-generator",
+                    ["@saithodev/semantic-release-gitea", { giteaUrl: $gitUrl, },],
+                    ["@semantic-release/changelog", { changelogFile: "CHANGELOG.md", },],
+                    ["@semantic-release/git", { assets: ["CHANGELOG.md"], },]
+                ],
+        };
+        EOF
+      - ls -al
+      - export GITEA_TOKEN=91797dbe1a1484d65f4c3442b1c9fbb69f117fe4
+      - npm i @semantic-release/changelog @semantic-release/git @saithodev/semantic-release-gitea
+
+      # Exit with code 78 will stop later step
+      - npx semantic-release --dry-run > status.txt
+      - cat status.txt
+      # won.t is for regex
+      - export NO_PUBLISH=$(grep -r "new version won.t be published" -c ./status.txt)
+      - export NO_RELEASE=$(grep -r "no new version is released" -c ./status.txt)
+      - echo $NO_PUBLISH
+      - echo $NO_RELEASE
+      - |
+        if [ $NO_PUBLISH -gt 0 -o $NO_RELEASE -gt 0 ]; then
+          if [ $NO_PUBLISH -gt 0 ]; then
+            echo "No Run with 'new version won't be published'"
+          fi
+          if [ $NO_RELEASE -gt 0 ]; then
+            echo "No Run with 'no new version is released'"
+          fi
+          exit 78
+        fi
+
+      # if no such case, will release and build later
+      - npx semantic-release > status.txt
+      - export CREATED_TAG=$(grep -ro "Created tag v[0-9]\+.[0-9]\+.[0-9]\+" status.txt | grep -oE "[0-9]+.[0-9]+.[0-9]+")
+      - echo "IMG_VERSION=$CREATED_TAG" >> sourceFile
+      - echo $CREATED_TAG
+
+  - name: build-image
+    image: docker:dind
+    volumes:
+      - name: dockersock
+        path: /var/run
+    commands:
+      - sleep 5 # give docker enough time to start
+      - cat sourceFile
+      - source sourceFile
+      #
+      - docker build -t registry.cn-hongkong.aliyuncs.com/mc2/grpc_gateway:$IMG_VERSION .
+      - echo "general1234" | docker login "registry.cn-hongkong.aliyuncs.com" --username "registry@1262500652741382" --password-stdin
+      - docker push registry.cn-hongkong.aliyuncs.com/mc2/grpc_gateway:$IMG_VERSION
+      - docker tag registry.cn-hongkong.aliyuncs.com/mc2/grpc_gateway:$IMG_VERSION registry.cn-hongkong.aliyuncs.com/mc2/grpc_gateway:latest
+      - docker push registry.cn-hongkong.aliyuncs.com/mc2/grpc_gateway:latest
+  - name: update-cd-pipeline
+    image: bitnami/git
+    commands:
+      - cat sourceFile
+      - . ./sourceFile
+      - apt update && apt install wget -y
+      - wget https://github.com/mikefarah/yq/releases/download/v4.27.5/yq_linux_amd64 -O ~/yq
+      - chmod 777 ~/yq
+      - |
+        TRIAL=0
+        TryUntilSucceed()
+        {
+          git clone https://gitea.greatics.net/GitOps/milkcargo.git ./deploy
+          cd ./deploy/mc2
+          imgname=registry.cn-hongkong.aliyuncs.com/mc2/grpc_gateway:$IMG_VERSION
+          ~/yq e ".app.gateway.image = \"$imgname\"" -i values.yaml
+          git status
+          cd ../
+          git add -A && git commit -m "git push from drone on $(date --date=now +%Y_%m_%d_%H_%M_%S)"
+
+          # if [ $TRIAL -lt 1 ]; then
+          #   echo "Designated fail ------------"
+          #   echo "" > ./.git/config
+          # fi
+
+          if git push ; then
+              echo "'git push' succeeded"
+          else
+              echo "Retried $TRIAL times..."
+              TRIAL=$((TRIAL+1))
+              echo "'git push' failed"
+              if [ $TRIAL -gt 3 ]; then
+                echo "Retry 3 times, alert slack and exiting pipeline..."
+                curl -X POST -H 'Content-type: application/json' --data '{"text":"GitOps repo update failed with image $IMG_VERSION"}' https://hooks.slack.com/services/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
+                exit 1
+              fi
+              cd ../ && rm -r ./deploy
+              sleep 3
+              TryUntilSucceed
+          fi
+        }
+        TryUntilSucceed

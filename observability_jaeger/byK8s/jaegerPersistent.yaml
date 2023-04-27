@@ -1,0 +1,122 @@
+# headless-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-headless-svc
+  namespace: jaeger
+spec:
+  clusterIP: None
+  selector:
+    usage: jaeger
+  ports:
+    - port: 9411
+      targetPort: 9411
+      protocol: TCP
+      name: zipkin
+    - port: 16686
+      targetPort: 16686
+      protocol: TCP
+      name: dashboard
+    - port: 14268
+      targetPort: 14268
+      protocol: TCP
+      name: trace
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: jaeger-deployment
+  namespace: jaeger
+spec:
+  serviceName: jaeger-headless-svc
+  selector:
+    matchLabels:
+      usage: jaeger
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        usage: jaeger
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - resources: {}
+          image: jaegertracing/all-in-one:1.35
+          imagePullPolicy: IfNotPresent
+          name: jaeger-container
+          env:
+            - name: SPAN_STORAGE_TYPE # <-------- Storage
+              value: badger
+            - name: BADGER_EPHEMERAL
+              value: "false"
+            - name: BADGER_DIRECTORY_VALUE
+              value: /badger/data
+            - name: BADGER_DIRECTORY_KEY
+              value: /badger/key # <------------- Storage
+            - name: COLLECTOR_ZIPKIN_HOST_PORT
+              value: ":9411"
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+          ports:
+            - containerPort: 9411
+              protocol: TCP
+              name: zipkin
+            - containerPort: 16686
+              protocol: TCP
+              name: dashboard
+            - containerPort: 14268
+              protocol: TCP
+              name: trace
+          volumeMounts:
+            - name: jaeger-persistent-storage
+              mountPath: /badger
+  volumeClaimTemplates:
+    - metadata:
+        name: jaeger-persistent-storage
+      spec:
+        accessModes: ["ReadWriteMany"]
+        storageClassName: nfs-client
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jaeger-ingress
+  namespace: jaeger
+spec:
+  ingressClassName: public # <- Need pay attention on this
+  rules:
+    - host: zipkin.jaeger.office.ppwi
+      http:
+        paths:
+          - backend:
+              service:
+                name: jaeger-headless-svc
+                port:
+                  number: 9411
+            path: /
+            pathType: Prefix
+    - host: collector.jaeger.office.ppwi
+      http:
+        paths:
+          - backend:
+              service:
+                name: jaeger-headless-svc
+                port:
+                  number: 14268
+            path: /
+            pathType: Prefix
+    - host: jaeger.office.ppwi
+      http:
+        paths:
+          - backend:
+              service:
+                name: jaeger-headless-svc
+                port:
+                  number: 16686
+            path: /
+            pathType: Prefix
+#
+# kubectl -n jaeger port-forward svc/jaeger-headless-svc 9411:9411 14268:14268 16686:16686 --address=0.0.0.0

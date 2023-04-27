@@ -1,0 +1,24 @@
+FROM node:alpine3.15
+
+WORKDIR /app
+
+COPY package.json .env ./
+COPY proto ./proto
+COPY asServer ./asServer
+
+RUN npm install
+
+EXPOSE 8080
+
+CMD ["./asServer/server.js"]
+
+# #  for testing
+# ENTRYPOINT ["tail", "-f" ,"/dev/null"]
+
+# # docker build
+# docker build -t aco-grpc-server -f Dockerfile_server --no-cache .
+
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+# # run container
+# docker run -dit -p 8080:8080 --name=aco-g-server aco-grpc-server

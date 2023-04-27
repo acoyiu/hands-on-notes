@@ -1,0 +1,50 @@
+version: "3.9"
+services:
+  cassandra1:
+    image: cassandra:4.1
+    ports:
+      - 7000:7000
+      - 9042:9042
+    environment:
+      - CASSANDRA_SEEDS=cassandra1                            # seed hostname/IP address, cassandra check if self is host, stop bootstrap
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch # must use this always
+      - CASSANDRA_LISTEN_ADDRESS=cassandra1                   # self hostname/IP address, for other to contact self (port 7000/7001[TSL] must)
+      - CASSANDRA_RPC_ADDRESS=cassandra1                      # self hostname/IP address for client CQL (port 9042 must)
+      - CASSANDRA_CLUSTER_NAME=alpha-cluster
+      - CASSANDRA_DC=hongkong
+      - CASSANDRA_RACK=rack1
+
+  # # Need start seperately
+  # docker-compose up -d cassandra1
+
+  # # when play finish
+  # docker-compose kill
+  # docker-compose rm -f
+
+  cassandra2:
+    image: cassandra:4.1
+    ports:
+      - 7001:7000
+      - 9043:9042
+    environment:
+      - CASSANDRA_SEEDS=cassandra1
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_LISTEN_ADDRESS=cassandra2
+      - CASSANDRA_RPC_ADDRESS=cassandra2
+      - CASSANDRA_CLUSTER_NAME=alpha-cluster
+      - CASSANDRA_DC=hongkong
+      - CASSANDRA_RACK=rack1
+
+  cassandra3:
+    image: cassandra:4.1
+    ports:
+      - 7002:7000
+      - 9044:9042
+    environment:
+      - CASSANDRA_SEEDS=cassandra1
+      - CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch
+      - CASSANDRA_LISTEN_ADDRESS=cassandra3
+      - CASSANDRA_RPC_ADDRESS=cassandra3
+      - CASSANDRA_CLUSTER_NAME=alpha-cluster
+      - CASSANDRA_DC=hongkong
+      - CASSANDRA_RACK=rack1

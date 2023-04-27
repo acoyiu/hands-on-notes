@@ -1,0 +1,6 @@
+apiVersion: ng.nginx.com/v2beta2
+kind: Nginxset
+metadata:
+  name: nginxset-sample-2
+spec:
+  returnText: this is NOT NOT ok

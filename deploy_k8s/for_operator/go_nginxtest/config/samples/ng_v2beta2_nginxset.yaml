@@ -1,0 +1,6 @@
+apiVersion: ng.nginx.com/v2beta2
+kind: Nginxset
+metadata:
+  name: nginxset-sample
+spec:
+  returnText: this is ok

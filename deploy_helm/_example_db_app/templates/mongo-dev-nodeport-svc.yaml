@@ -1,0 +1,21 @@
+{{- if .Values.app.mongo.devNeedNodePort }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Values.appInitial }}-mongo-nodeport-svc"
+  namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+  labels:
+    app: "{{ .Values.appInitial }}-mongo"
+    db-usage: "true"
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      nodePort: {{ .Values.app.mongo.devNodePortSvcPort }}
+      port: 27017
+      targetPort: 27017
+  selector:
+    app: "{{ .Values.appInitial }}-mongo"
+    db-usage: "true"
+    statefulset.kubernetes.io/pod-name: "{{ .Values.appInitial }}-mongo-sts-0"
+{{- end }}

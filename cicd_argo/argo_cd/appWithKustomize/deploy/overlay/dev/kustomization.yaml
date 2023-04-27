@@ -1,0 +1,10 @@
+namePrefix: dev-
+
+commonLabels:
+  usage: argo-test
+
+resources:
+  - ./cm.yaml
+
+bases:
+  - ../../base

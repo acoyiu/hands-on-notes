@@ -1,0 +1,11 @@
+node_modules
+
+/*
+
+!readme.md
+!.gitignore
+!/_example
+!/_runMode
+!/_template
+
+.DS_Store

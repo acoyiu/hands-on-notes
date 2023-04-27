@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: letsencrypt-prod-prometheus
+  namespace: linkerd-viz
+spec:
+  acme:
+    email: aco@ppwi.world
+    server: https://...(# Staging or Production)
+    disableAccountKeyGeneration: false
+    privateKeySecretRef:
+      name: issuer-prometheus-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: nginx

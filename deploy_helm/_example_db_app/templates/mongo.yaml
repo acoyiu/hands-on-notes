@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Values.appInitial }}-mongo-svc"
+  namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+  labels:
+    app: "{{ .Values.appInitial }}-mongo"
+    db-usage: "true"
+spec:
+  ports:
+    - port: 27017
+      targetPort: 27017
+  clusterIP: None
+  selector:
+    app: "{{ .Values.appInitial }}-mongo"
+    db-usage: "true"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.appInitial }}-mongo-sts
+  namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+  labels:
+    app: "{{ .Values.appInitial }}-mongo"
+    db-usage: "true"
+spec:
+  serviceName: "{{ .Values.appInitial }}-mongo-svc"
+  selector:
+    matchLabels:
+      app: "{{ .Values.appInitial }}-mongo"
+      db-usage: "true"
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: "{{ .Values.appInitial }}-mongo"
+        db-usage: "true"
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: mongo
+          image: mongo:5
+          command:
+            - "mongod"
+            - "--bind_ip_all"
+            - "--replSet"
+            - "MainRepSet"
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: "{{ .Values.appInitial }}-mongo-persistent-storage"
+              mountPath: /data/db
+  volumeClaimTemplates:
+    - metadata:
+        name: "{{ .Values.appInitial }}-mongo-persistent-storage"
+        namespace: "{{ .Values.appInitial }}-{{ .Values.stage }}"
+        labels:
+          app: "{{ .Values.appInitial }}-mongo"
+          db-usage: "true"
+      spec:
+        accessModes: ["ReadWriteMany"]
+        storageClassName: {{ .Values.app.mongo.storageClass }}
+        resources:
+          requests:
+            storage: {{ .Values.app.mongo.storage }}

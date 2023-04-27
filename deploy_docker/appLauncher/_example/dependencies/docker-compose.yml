@@ -1,0 +1,16 @@
+version: "3"
+
+services:
+  mongo-env:
+    networks:
+      - app-launcher-network
+    image: mongo:5.0.2
+    container_name: app-project-dependencies
+    restart: always
+    ports:
+      - 3008:27017
+
+networks:
+  app-launcher-network:
+    external:
+      name: app-launcher-network

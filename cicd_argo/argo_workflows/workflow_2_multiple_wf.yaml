@@ -1,0 +1,114 @@
+apiVersion: argoproj.io/v1alpha1
+
+# kind 可以是
+# - Workflow
+# - CronWorkflow
+# - WorkflowTemplate
+
+kind: Workflow
+
+metadata:
+  generateName: multiple-wf-
+  labels:
+    use-case: multiple-wf
+spec:
+  entrypoint: steps-flow
+
+  # When using Template Value:
+  # spec.arguments 的參數可以被整個 workflow 所使用       -- "workflow.parameters.?"
+  # 所有 template 亦可以從 parent template 取得 argument -- "inputs.parameters.?"
+
+  arguments:
+    parameters:
+      - name: workflow-param-1
+
+  templates:
+    - name: steps-flow
+      steps:
+        - - name: step1
+            template: bash-run # 引用其他 step
+        - - name: step2a
+            template: gen-random-int
+          - name: step2b
+            template: dag-flow
+
+    # Step 支持并發，此 step 為
+    # -> step1 --> step2a (step 2a 與 2b 是同時進行的)
+    #          \-> step2b
+
+    # ====================================================================
+
+    - name: dag-flow
+      dag:
+        failFast: false # 節點發生失敗整個 workflow 會直接失敗
+        tasks:
+          - name: dag-A
+            template: k8s-owner-reference
+
+          - name: dag-B
+            template: delay-no-more
+            dependencies: [dag-A]
+
+          - name: dag-C
+            template: bash-run
+            dependencies: [dag-B]
+
+          - name: dag-D
+            template: bash-run
+            dependencies: [dag-B]
+
+          - name: dag-E
+            template: using-global-and-parent-param
+            dependencies: [dag-C, dag-D]
+            arguments:
+              parameters:
+                - name: template-param-1
+                  value: "{{workflow.parameters.workflow-param-1}}-subfix"
+
+    # DAG 支持同步阻塞，此順序為
+    # -> dag-A --> dag-B (次序不確定) --> dag-C (次序不確定) -> dag-E
+    #                               \-> dag-D            ->/
+
+    # ====================================================================
+
+    - name: bash-run
+      container:
+        image: alpine
+        command: [sh, -c, "echo yoyo"]
+
+    - name: using-global-and-parent-param
+      inputs:
+        parameters:
+          - name: template-param-1
+      container:
+        image: alpine:latest
+        command:
+          - sh
+          - -c
+          - 'echo "{{workflow.parameters.workflow-param-1}} - {{inputs.parameters.template-param-1}}"'
+
+    - name: gen-random-int
+      script:
+        image: python:alpine3.6
+        command:
+          - python
+        source: |
+          import random
+          i = random.randint(1, 100)
+          print(i)
+
+    - name: k8s-owner-reference
+      resource:
+        action: create
+        manifest: |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            generateName: owned-by-
+            namespace: default
+          data:
+            some: value
+
+    - name: delay-no-more
+      suspend:
+        duration: 1m # "2m", "6h", "1d"

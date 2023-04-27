@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: workflow-template-example
+spec:
+  arguments:
+    parameters:
+      - name: message
+        # value: hello world # <- if this uncomment, will be unchangeable later
+
+  templates:
+    - name: steps-flow
+      inputs:
+        parameters:
+          - name: message
+      steps:
+        - - name: step1
+            template: first-step
+            arguments:
+              parameters:
+                - name: var2
+                  value: "{{workflow.parameters.message}}-subfix"
+        - - name: step2
+            template: second-step
+
+    - name: first-step
+      inputs:
+        parameters:
+          - name: var2
+      container:
+        image: ubuntu
+        command:
+          - sh
+          - -c
+          - "echo {{inputs.parameters.var2}}"
+
+    - name: second-step
+      inputs:
+      container:
+        image: ubuntu
+        command: [sh, -c, "echo end"]

@@ -1,0 +1,27 @@
+bases:
+  - ../../base
+
+nameSuffix: -prod
+
+commonLabels:
+  env: production
+
+configMapGenerator:
+  - name: cm-root-html
+    literals:
+      - index.html=<p>this is cm for production 1</p>
+
+patchesStrategicMerge:
+- deploy.yaml
+
+# kubectl run temp --image=nginx:alpine --restart=Never --rm -i --command -- curl aco-nginx-svc-prod:8080
+
+# Create ./deploy.yaml
+# with
+
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: nginx-deploy
+#   annotations:
+#     kubernetes.io/change-cause: update-root-text-to-2

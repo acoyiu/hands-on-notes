@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-for-grpc-gateway
+data:
+  envContent: |-
+    SERVER_HOST_PORT="8080"
+    SERVER_URL_LOCATION="service-aco-server:8080"

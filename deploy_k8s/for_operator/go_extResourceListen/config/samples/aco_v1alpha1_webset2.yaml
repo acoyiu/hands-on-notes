@@ -1,0 +1,6 @@
+apiVersion: aco.test.com/v1alpha1
+kind: Webset
+metadata:
+  name: webset-sample-2
+spec:
+  configmap: cm2

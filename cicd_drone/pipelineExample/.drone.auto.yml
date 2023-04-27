@@ -1,0 +1,110 @@
+kind: pipeline
+type: kubernetes
+name: default
+
+trigger:
+  branch:
+    - citest
+  event:
+    - push
+
+clone:
+  disable: true
+
+services:
+  - name: docker
+    image: docker:dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+
+steps:
+  - name: clone-custom
+    image: bitnami/git
+    commands:
+      - git clone $DRONE_REMOTE_URL .
+      - git checkout $DRONE_COMMIT
+      # 
+      - SHA_NUM=$(git log --oneline | head -n 1 | awk '{print $1}')
+      - echo "SHA_NUM=$SHA_NUM" >> sourceFile
+      - echo SHA_NUM
+      # 
+      - LATEST_COMMIT_MESSAGE=$(git show -s --format=%s)
+      - echo "LATEST_COMMIT_MESSAGE=\"$LATEST_COMMIT_MESSAGE\"" >> sourceFile
+      # 
+      - LATEST_TAG=$(git describe --abbrev=0)
+      - echo "LATEST_TAG=$LATEST_TAG" >> sourceFile
+      - echo $LATEST_TAG
+      # 
+      - Versio=$(expr substr $LATEST_TAG 2 100)
+      - echo $Versio
+      # 
+      - MAJOR=$(echo $Versio | cut -d "." -f 1)
+      - echo "MAJOR=$MAJOR" >> sourceFile
+      # 
+      - MINOR=$(echo $Versio | cut -d "." -f 2)
+      - echo "MINOR=$MINOR" >> sourceFile
+      # 
+      - PATCH=$(echo $Versio | cut -d "." -f 3)
+      - echo "PATCH=$PATCH" >> sourceFile
+      # 
+      - cat sourceFile
+  - name: test
+    image: docker:dind
+    volumes:
+      - name: dockersock
+        path: /var/run
+    commands:
+      - sleep 5 # give docker enough time to start 
+      - cat sourceFile
+      - source sourceFile
+      - echo $LATEST_COMMIT_MESSAGE
+      - echo $LATEST_TAG
+      - |
+        if [[ "$LATEST_COMMIT_MESSAGE" =~ '\[Major\]' ]]; then
+          echo "contains Major"
+          MAJOR=$((MAJOR+1))
+          MINOR=0
+          PATCH=0
+        elif [[ "$LATEST_COMMIT_MESSAGE" =~ '\[Minor\]' ]]; then
+          echo "contains Minor"
+          MINOR=$((MINOR+1))
+          PATCH=0
+        else
+          echo "No detected"
+          PATCH=$((PATCH+1))
+        fi
+      - IMG_VERSION="v$MAJOR.$MINOR.$PATCH"
+      - echo $IMG_VERSION
+      # 
+      - docker build -t registry.greatics.net/mc2/ms_guestauth:$IMG_VERSION .
+      - echo "generalgeneral" | docker login "registry.greatics.net" --username "general" --password-stdin
+      - docker push registry.greatics.net/mc2/ms_guestauth:$IMG_VERSION
+      - docker tag registry.greatics.net/mc2/ms_guestauth:$IMG_VERSION registry.greatics.net/mc2/ms_guestauth:latest
+      - docker push registry.greatics.net/mc2/ms_guestauth:latest
+      # 
+      - echo "IMG_VERSION=$IMG_VERSION" >> sourceFile
+      - cat sourceFile
+  - name: add-git-tag
+    image: bitnami/git
+    commands:
+      - cat sourceFile
+      - . ./sourceFile
+      - git tag -a $IMG_VERSION $SHA_NUM -m "$LATEST_COMMIT_MESSAGE"
+      - git push origin $IMG_VERSION
+      - git clone https://gitea.greatics.net/GitOps/milkcargo.git ./deploy
+      - apt update && apt install wget -y
+      - wget https://github.com/mikefarah/yq/releases/download/v4.27.5/yq_linux_amd64 -O ~/yq
+      - chmod 777 ~/yq
+      - cd ./deploy/mc2
+      - imgname=registry.greatics.net/mc2/ms_guestauth:$IMG_VERSION
+      - ~/yq e ".app.ms_guestauth.image = \"$imgname\"" -i values.yaml
+      - git status
+      - cd ../
+      - git add -A && git commit -m "git push from drone on $(date --date=now +%Y_%m_%d_%H_%M_%S)"
+      - git push

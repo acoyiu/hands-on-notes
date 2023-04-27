@@ -1,0 +1,13 @@
+app:
+  name: golang-trial
+  description: this is a golang trial of helm
+  label: golang-trial-label
+  replicas: 2
+
+spec:
+  imagePullPolicy: Always
+  imagePullSecrets: k8s-secret-name
+  fromRegistry: 192.168.0.170:34000
+  image: project2
+  tag: d-April-30
+  servicePort: 8080

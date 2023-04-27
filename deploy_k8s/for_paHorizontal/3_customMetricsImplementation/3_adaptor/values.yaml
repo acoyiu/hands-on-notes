@@ -1,0 +1,13 @@
+prometheus:
+  url: http://prometheus-server.prometheus # 替换 Prometheus API 的地址 (不写端口)
+  port: 80
+rules:
+  default: false
+  custom:
+    - seriesQuery: "http_requests_total"
+      resources:
+        template: <<.Resource>>
+      name:
+        matches: "^(.*)_total"
+        as: "${1}_rate"
+      metricsQuery: sum(rate(<<.Series>>{<<.LabelMatchers>>}[15m])) by (<<.GroupBy>>)

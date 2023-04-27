@@ -1,0 +1,48 @@
+# Push to aliyun repository
+# docker push
+
+stages:
+  - test
+  - build
+
+unit-test:
+  stage: test
+  tags:
+    - shell-executor-aliyunhk
+  script:
+    - echo 'do unit tests...'
+
+dockerize:
+  stage: build
+  tags:
+    - docker-executor-aliyunhk
+  # variables:
+  #   GIT_SUBMODULE_STRATEGY: normal
+  before_script:
+    - echo "$CR_PASSWORD" | docker login --username=$CR_USERNAME $CR_HOST --password-stdin
+  script:
+    - >
+      if [ "$CI_COMMIT_REF_NAME" == "dev" ]; then
+          docker build -t $CR_HOST/$CR_NAMESPACE_DEV/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA .
+          docker push $CR_HOST/$CR_NAMESPACE_DEV/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA
+      elif [ "$CI_COMMIT_REF_NAME" == "stg" ]; then
+          docker build -t $CR_HOST/$CR_NAMESPACE_STG/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA .
+          docker push $CR_HOST/$CR_NAMESPACE_STG/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA
+      elif [ "$CI_COMMIT_REF_NAME" == "pro" ]; then
+          docker build -t $CR_HOST/$CR_NAMESPACE_PRO/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA .
+          docker push $CR_HOST/$CR_NAMESPACE_PRO/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA
+      fi
+  after_script:
+    - >
+      if [ "$CI_COMMIT_REF_NAME" == "dev" ]; then
+        docker rmi -f $(docker images | grep $CR_HOST/$CR_NAMESPACE_DEV/$CI_PROJECT_NAME | tr -s ' ' | cut -d ' ' -f 3)
+      elif [ "$CI_COMMIT_REF_NAME" == "stg" ]; then
+        docker rmi -f $(docker images | grep $CR_HOST/$CR_NAMESPACE_STG/$CI_PROJECT_NAME | tr -s ' ' | cut -d ' ' -f 3)
+      elif [ "$CI_COMMIT_REF_NAME" == "pro" ]; then
+        docker rmi -f $(docker images | grep $CR_HOST/$CR_NAMESPACE_PRO/$CI_PROJECT_NAME | tr -s ' ' | cut -d ' ' -f 3)
+      fi
+  only:
+    refs:
+      - dev
+      - stg
+      - pro
